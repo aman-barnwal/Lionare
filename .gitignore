@@ -30,3 +30,29 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Environments
+venv/
+.venv/
+
+# Financial datasets
+datasets/
+*.parquet
+
+# Model checkpoints
+checkpoints/
+artifacts/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Credentials
+.env
+.env.*
+!.env.example
+
+# Python caches
+__pycache__/
+.pytest_cache/
+*.py[cod]
