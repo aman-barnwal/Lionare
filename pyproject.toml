@@ -1,22 +1,35 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
 
 [project]
 name = "lionare-lqie"
 version = "0.3.0"
-description = "Deterministic quantitative and financial mathematics engine for Lionare"
-readme = "README.md"
-requires-python = ">=3.10"
-authors = [{ name = "Lionare Engineering" }]
-dependencies = ["numpy>=1.26"]
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "numpy>=2.0",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+dev = [
+    "pytest>=9.0",
+]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
+data = [
+    "polars>=2.1",
+    "pyarrow",
+    "duckdb",
+    "scikit-learn>=1.9",
+]
+
+openbb = [
+    "openbb-core[pandas]",
+    "openbb-sec",
+    "openbb-fred",
+    "openbb-cboe",
+    "openbb-nasdaq",
+    "openbb-news",
+]
+
+all = [
+    "lionare-lqie[dev,data,openbb]",
+]
+
