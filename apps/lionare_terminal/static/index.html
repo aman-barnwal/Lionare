@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lionare Terminal</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #080b10;
+  --panel: #10161f;
+  --panel2: #141c27;
+  --line: #263241;
+  --muted: #8c9aaa;
+  --text: #e5edf5;
+  --green: #52d6a0;
+  --cyan: #61c7e8;
+  --amber: #e8b66a;
+  --red: #e17c7c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 Inter, Segoe UI, Arial, sans-serif;
+}
+button { font: inherit; }
+.shell { display: grid; grid-template-columns: 205px 1fr; min-height: 100vh; }
+.sidebar {
+  background: #0b1017;
+  border-right: 1px solid var(--line);
+  padding: 20px 12px;
+}
+.brand {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 3px 10px 5px;
+}
+.brand span { color: var(--green); }
+.brand-sub {
+  color: var(--muted);
+  font: 10px monospace;
+  letter-spacing: 2px;
+  padding: 0 10px 22px;
+}
+.group {
+  color: #647486;
+  font: 10px monospace;
+  letter-spacing: 1.4px;
+  padding: 14px 10px 7px;
+}
+.nav {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 5px;
+  color: #b9c5d2;
+  background: transparent;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+.nav:hover,.nav.active { background: #182330; color: white; }
+.nav.active { box-shadow: inset 2px 0 var(--green); }
+.side-foot {
+  position: sticky;
+  top: 85vh;
+  margin: 40px 10px 0;
+  color: var(--muted);
+  font: 10px monospace;
+}
+.main { min-width: 0; }
+.topbar {
+  height: 62px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #0b1017;
+}
+.crumb { color: var(--muted); font: 11px monospace; }
+.status {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--green);
+  font: 11px monospace;
+}
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.content { padding: 22px 24px 40px; max-width: 1600px; margin: auto; }
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 20px;
+}
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .3px; }
+.sub { color: var(--muted); font: 11px monospace; }
+.time { color: var(--muted); font: 11px monospace; }
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 15px;
+  min-width: 0;
+}
+.k-label { color: var(--muted); font: 10px monospace; letter-spacing: 1px; }
+.k-value { font: 22px monospace; margin-top: 8px; color: var(--text); }
+.k-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.two {
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 13px;
+}
+.card-title { font-weight: 700; letter-spacing: .4px; }
+.tag {
+  color: var(--cyan);
+  font: 10px monospace;
+  border: 1px solid #285064;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+th {
+  text-align: left;
+  color: #8191a2;
+  font: 10px monospace;
+  padding: 8px 7px;
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 9px 7px;
+  border-bottom: 1px solid #1b2733;
+  color: #d1dbe5;
+  font-size: 11px;
+}
+tr:last-child td { border-bottom: 0; }
+.ok { color: var(--green); }
+.bad { color: var(--red); }
+.warn { color: var(--amber); }
+.news-list { display: grid; gap: 0; }
+.news-item { padding: 10px 0; border-bottom: 1px solid #1b2733; }
+.news-item:last-child { border-bottom: 0; }
+.news-title { color: var(--text); text-decoration: none; font-size: 12px; }
+.news-title:hover { color: var(--cyan); }
+.news-meta { color: var(--muted); font: 10px monospace; margin-top: 5px; }
+.market-placeholder {
+  min-height: 155px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed #344354;
+  border-radius: 5px;
+  padding: 20px;
+}
+.market-placeholder strong { color: var(--amber); display: block; margin-bottom: 6px; }
+.empty { color: var(--muted); padding: 18px 5px; font-size: 11px; }
+.footer {
+  color: #718194;
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 12px;
+  font: 10px monospace;
+}
+@media(max-width:950px) {
+  .shell { grid-template-columns: 165px 1fr; }
+  .grid4 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .two { grid-template-columns: 1fr; }
+}
+@media(max-width:650px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+  .sidebar .group,.side-foot { display: none; }
+  .sidebar nav { display: grid; grid-template-columns: repeat(4,1fr); }
+  .nav { font-size: 11px; }
+  .topbar { padding: 0 14px; }
+  .content { padding: 16px 12px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">LION<span>ARE</span></div>
+    <div class="brand-sub">FINANCIAL INTELLIGENCE</div>
+    <div class="group">WORKSPACE</div>
+    <nav>
+      <button class="nav active">Overview</button>
+      <button class="nav">Markets</button>
+      <button class="nav">Macro</button>
+      <button class="nav">FX</button>
+      <button class="nav">Commodities</button>
+      <button class="nav">Derivatives</button>
+      <button class="nav">News</button>
+      <button class="nav">Research</button>
+      <button class="nav">Portfolio</button>
+      <button class="nav">Risk</button>
+      <button class="nav">LQIE</button>
+      <button class="nav">Data Lake</button>
+    </nav>
+    <div class="side-foot">LQIE ENGINE · 0.4.0<br>LOCAL RESEARCH NODE</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">LIONARE / GLOBAL INTELLIGENCE / OVERVIEW</div>
+      <div class="status"><span class="dot"></span><span id="live-label">LOCAL NODE</span></div>
+    </header>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Global Intelligence</h1>
+          <div class="sub">DATA · RESEARCH · MACRO · RISK · LQIE</div>
+        </div>
+        <div class="time" id="clock">LOCAL TIME</div>
+      </div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="k-label">DATA LAKE STORAGE</div>
+          <div class="k-value" id="storage">—</div>
+          <div class="k-note">Bronze / Silver / Gold</div>
+        </div>
+        <div class="card">
+          <div class="k-label">SILVER DATASETS</div>
+          <div class="k-value" id="dataset-count">—</div>
+          <div class="k-note">Queryable Parquet tables</div>
+        </div>
+        <div class="card">
+          <div class="k-label">NEWS HEADLINES</div>
+          <div class="k-value" id="headline-count">—</div>
+          <div class="k-note">Official publisher feeds</div>
+        </div>
+        <div class="card">
+          <div class="k-label">SOURCE PROBES UP</div>
+          <div class="k-value" id="source-count">—</div>
+          <div class="k-note" id="health-time">Waiting for health check</div>
+        </div>
+      </div>
+
+      <div class="two">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">SOURCE HEALTH</div>
+            <span class="tag">CONNECTIVITY</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>SOURCE</th><th>STATUS</th><th>LATENCY</th></tr></thead>
+              <tbody id="health-rows"><tr><td colspan="3">Waiting for live monitor…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">MARKET DATA STATUS</div>
+            <span class="tag">FEED ENTITLEMENTS</span>
+          </div>
+          <div class="market-placeholder">
+            <div>
+              <strong>LIVE EXCHANGE QUOTES NOT CONNECTED</strong>
+              This workstation currently displays public historical and reference datasets.
+              A licensed market-price feed is required for live exchange quotes and order books.
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="two">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">LATEST OFFICIAL NEWS</div>
+            <span class="tag">RSS / SOURCE LINKS</span>
+          </div>
+          <div id="news-list" class="news-list">
+            <div class="empty">No headlines collected yet. Start the live monitor.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">DATA CATALOGUE</div>
+            <span class="tag">LQIE / DUCKDB</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>DATASET</th><th>ROWS</th><th>SIZE</th></tr></thead>
+              <tbody id="dataset-rows"><tr><td colspan="3">No Parquet datasets found.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title">GDELT EVENT STREAM</div>
+          <span class="tag">15-MINUTE EVENT BATCH</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>DATE ADDED</th><th>ACTOR 1</th><th>EVENT</th><th>ACTOR 2</th><th>GOLDSTEIN</th><th>SOURCE</th></tr>
+            </thead>
+            <tbody id="event-rows"><tr><td colspan="6">Waiting for GDELT event batch.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="footer">
+        LIONARE TERMINAL 0.4 · LOCAL DATA NODE · SOURCE PROVENANCE PRESERVED
+        <span style="float:right" id="last-refresh">NOT REFRESHED</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => new Intl.NumberFormat().format(n || 0);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+
+async function getJSON(path) {
+  const response = await fetch(path, {cache:"no-store"});
+  if (!response.ok) throw new Error(`${path}: ${response.status}`);
+  return response.json();
+}
+
+function renderHealth(health) {
+  const probes = health.probe_results || [];
+  const rss = health.rss_results || [];
+  const all = [
+    ...probes,
+    ...rss.map(x => ({
+      source: `${x.source} RSS`,
+      status: x.status,
+      latency_ms: null
+    }))
+  ];
+
+  const up = probes.filter(x => x.status === "UP").length;
+  $("source-count").textContent = `${up}/${probes.length}`;
+  $("health-time").textContent = health.checked_at_utc
+    ? `Checked ${health.checked_at_utc}` : "Waiting for health check";
+
+  $("health-rows").innerHTML = all.length ? all.map(x => `
+    <tr>
+      <td>${esc(x.source)}</td>
+      <td class="${x.status === "UP" ? "ok" : "bad"}">${esc(x.status)}</td>
+      <td>${x.latency_ms == null ? "—" : `${esc(x.latency_ms)} ms`}</td>
+    </tr>`).join("") :
+    `<tr><td colspan="3">No health report yet.</td></tr>`;
+}
+
+function renderDatasets(datasets) {
+  if (!Array.isArray(datasets)) datasets = [];
+  $("dataset-rows").innerHTML = datasets.length ? datasets.map(x => `
+    <tr>
+      <td>${esc(x.name)}</td>
+      <td>${fmt(x.rows)}</td>
+      <td>${(x.size_bytes / 1024).toFixed(1)} KB</td>
+    </tr>`).join("") :
+    `<tr><td colspan="3">No Parquet datasets ingested yet.</td></tr>`;
+}
+
+function renderNews(items) {
+  $("news-list").innerHTML = items.length ? items.slice(0,30).map(x => `
+    <div class="news-item">
+      <a class="news-title" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">
+        ${esc(x.title)}
+      </a>
+      <div class="news-meta">${esc(x.source)} · ${esc(x.published_at || x.collected_at_utc || "")}</div>
+    </div>`).join("") :
+    `<div class="empty">No official headlines collected yet.</div>`;
+}
+
+function renderEvents(items) {
+  $("event-rows").innerHTML = items.length ? items.slice(0,30).map(x => `
+    <tr>
+      <td>${esc(x.date_added)}</td>
+      <td>${esc(x.actor1_name)}</td>
+      <td>${esc(x.event_code)}</td>
+      <td>${esc(x.actor2_name)}</td>
+      <td>${esc(x.goldstein_scale)}</td>
+      <td><a href="${esc(x.source_url)}" target="_blank" rel="noopener noreferrer">Open</a></td>
+    </tr>`).join("") :
+    `<tr><td colspan="6">No GDELT events available.</td></tr>`;
+}
+
+async function refresh() {
+  try {
+    const overview = await getJSON("/api/overview");
+    $("storage").textContent = `${(overview.storage_bytes / 1048576).toFixed(2)} MB`;
+    $("dataset-count").textContent = fmt(overview.dataset_count);
+    $("headline-count").textContent = fmt(overview.headline_count);
+    $("live-label").textContent = "LOCAL NODE ONLINE";
+
+    renderHealth(overview.health || {});
+    renderDatasets(overview.datasets || []);
+
+    const news = await getJSON("/api/news");
+    renderNews(news.headlines || []);
+    renderEvents(news.events || []);
+
+    $("last-refresh").textContent = `UI REFRESH ${new Date().toLocaleTimeString()}`;
+  } catch (error) {
+    $("live-label").textContent = "API UNAVAILABLE";
+    console.error(error);
+  }
+}
+
+function updateClock() {
+  $("clock").textContent = new Date().toLocaleString();
+}
+
+document.querySelectorAll(".nav").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".nav").forEach(x => x.classList.remove("active"));
+    button.classList.add("active");
+  });
+});
+
+updateClock();
+refresh();
+setInterval(updateClock, 1000);
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
