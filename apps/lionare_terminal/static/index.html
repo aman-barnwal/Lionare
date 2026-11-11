@@ -6,452 +6,514 @@
 <title>Lionare Terminal</title>
 <style>
 :root {
-  color-scheme: dark;
-  --bg: #080b10;
-  --panel: #10161f;
-  --panel2: #141c27;
-  --line: #263241;
-  --muted: #8c9aaa;
-  --text: #e5edf5;
-  --green: #52d6a0;
-  --cyan: #61c7e8;
-  --amber: #e8b66a;
-  --red: #e17c7c;
+ --bg:#080c12;--side:#0c121b;--panel:#101923;--panel2:#141f2c;
+ --line:#253343;--text:#e5edf5;--muted:#8798aa;
+ --green:#45d6a0;--cyan:#60c7ec;--amber:#efbd70;--red:#e77d7d;
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 13px/1.45 Inter, Segoe UI, Arial, sans-serif;
-}
-button { font: inherit; }
-.shell { display: grid; grid-template-columns: 205px 1fr; min-height: 100vh; }
-.sidebar {
-  background: #0b1017;
-  border-right: 1px solid var(--line);
-  padding: 20px 12px;
-}
-.brand {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  padding: 3px 10px 5px;
-}
-.brand span { color: var(--green); }
-.brand-sub {
-  color: var(--muted);
-  font: 10px monospace;
-  letter-spacing: 2px;
-  padding: 0 10px 22px;
-}
-.group {
-  color: #647486;
-  font: 10px monospace;
-  letter-spacing: 1.4px;
-  padding: 14px 10px 7px;
-}
-.nav {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-radius: 5px;
-  color: #b9c5d2;
-  background: transparent;
-  padding: 9px 10px;
-  cursor: pointer;
-}
-.nav:hover,.nav.active { background: #182330; color: white; }
-.nav.active { box-shadow: inset 2px 0 var(--green); }
-.side-foot {
-  position: sticky;
-  top: 85vh;
-  margin: 40px 10px 0;
-  color: var(--muted);
-  font: 10px monospace;
-}
-.main { min-width: 0; }
-.topbar {
-  height: 62px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  background: #0b1017;
-}
-.crumb { color: var(--muted); font: 11px monospace; }
-.status {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--green);
-  font: 11px monospace;
-}
-.dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-}
-.content { padding: 22px 24px 40px; max-width: 1600px; margin: auto; }
-.page-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  margin-bottom: 20px;
-}
-h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .3px; }
-.sub { color: var(--muted); font: 11px monospace; }
-.time { color: var(--muted); font: 11px monospace; }
-.grid4 {
-  display: grid;
-  grid-template-columns: repeat(4,minmax(0,1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 15px;
-  min-width: 0;
-}
-.k-label { color: var(--muted); font: 10px monospace; letter-spacing: 1px; }
-.k-value { font: 22px monospace; margin-top: 8px; color: var(--text); }
-.k-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
-.two {
-  display: grid;
-  grid-template-columns: 1.15fr .85fr;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 13px;
-}
-.card-title { font-weight: 700; letter-spacing: .4px; }
-.tag {
-  color: var(--cyan);
-  font: 10px monospace;
-  border: 1px solid #285064;
-  padding: 3px 6px;
-  border-radius: 3px;
-}
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-th {
-  text-align: left;
-  color: #8191a2;
-  font: 10px monospace;
-  padding: 8px 7px;
-  border-bottom: 1px solid var(--line);
-}
-td {
-  padding: 9px 7px;
-  border-bottom: 1px solid #1b2733;
-  color: #d1dbe5;
-  font-size: 11px;
-}
-tr:last-child td { border-bottom: 0; }
-.ok { color: var(--green); }
-.bad { color: var(--red); }
-.warn { color: var(--amber); }
-.news-list { display: grid; gap: 0; }
-.news-item { padding: 10px 0; border-bottom: 1px solid #1b2733; }
-.news-item:last-child { border-bottom: 0; }
-.news-title { color: var(--text); text-decoration: none; font-size: 12px; }
-.news-title:hover { color: var(--cyan); }
-.news-meta { color: var(--muted); font: 10px monospace; margin-top: 5px; }
-.market-placeholder {
-  min-height: 155px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  color: var(--muted);
-  border: 1px dashed #344354;
-  border-radius: 5px;
-  padding: 20px;
-}
-.market-placeholder strong { color: var(--amber); display: block; margin-bottom: 6px; }
-.empty { color: var(--muted); padding: 18px 5px; font-size: 11px; }
-.footer {
-  color: #718194;
-  border-top: 1px solid var(--line);
-  margin-top: 18px;
-  padding-top: 12px;
-  font: 10px monospace;
-}
-@media(max-width:950px) {
-  .shell { grid-template-columns: 165px 1fr; }
-  .grid4 { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .two { grid-template-columns: 1fr; }
-}
-@media(max-width:650px) {
-  .shell { grid-template-columns: 1fr; }
-  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
-  .sidebar .group,.side-foot { display: none; }
-  .sidebar nav { display: grid; grid-template-columns: repeat(4,1fr); }
-  .nav { font-size: 11px; }
-  .topbar { padding: 0 14px; }
-  .content { padding: 16px 12px; }
-}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px Inter,Segoe UI,Arial,sans-serif}
+button,select,input{font:inherit}
+button,select,input{color:var(--text);background:#111c28;border:1px solid var(--line);border-radius:4px;padding:8px}
+button{cursor:pointer}
+button:hover{border-color:var(--cyan)}
+a{color:var(--cyan);text-decoration:none}
+.shell{min-height:100vh;display:grid;grid-template-columns:205px 1fr}
+.sidebar{background:var(--side);border-right:1px solid var(--line);padding:18px 12px}
+.brand{font-weight:900;font-size:20px;letter-spacing:2px;padding:5px 8px}
+.brand b{color:var(--green)}
+.tagline{font:9px monospace;letter-spacing:1.5px;color:var(--muted);padding:0 9px 22px}
+.navlabel{font:10px monospace;color:#637589;letter-spacing:1.5px;padding:14px 9px 6px}
+.nav{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;color:#b8c6d4}
+.nav.active,.nav:hover{background:#192735;color:white}
+.nav.active{box-shadow:inset 2px 0 var(--green)}
+.sidebar-foot{margin:35px 9px;color:var(--muted);font:10px/1.8 monospace}
+.main{min-width:0}
+.top{height:56px;background:#0c121b;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:14px}
+.breadcrumb{color:var(--muted);font:10px monospace;letter-spacing:1px}
+.connection{font:10px monospace;color:var(--green)}
+.content{max-width:1600px;margin:auto;padding:20px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:21px;margin:0 0 5px}
+h2{font-size:14px;margin:0}
+.sub{color:var(--muted);font:10px monospace}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;min-width:0}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:15px 0}
+.k{font:10px monospace;color:var(--muted);letter-spacing:.8px}
+.v{font:20px monospace;margin-top:8px}
+.note{font-size:10px;color:var(--muted);margin-top:5px}
+.company-grid{display:grid;grid-template-columns:repeat(10,minmax(88px,1fr));gap:7px;margin:14px 0}
+.company{background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:5px;cursor:pointer;min-width:0}
+.company:hover,.company.selected{border-color:var(--green);background:#13251f}
+.company strong{display:block;font: bold 13px monospace}
+.company span{display:block;color:var(--muted);font-size:9px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid-main{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(290px,.8fr);gap:12px}
+.chart-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:13px 0}
+.chart-head select{min-width:120px}
+.chart-box{height:350px;width:100%;position:relative}
+.chart-warning{margin-top:8px;color:var(--amber);font-size:10px}
+.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.stat{background:var(--panel2);padding:10px;border-radius:4px}
+.stat b{display:block;font:15px monospace;margin-top:5px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.tablewrap{overflow:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th{text-align:left;color:var(--muted);font:10px monospace;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid #1b2835;font-size:11px}
+.up{color:var(--green)}.down{color:var(--red)}.amber{color:var(--amber)}
+.newsitem{padding:10px 0;border-bottom:1px solid #1c2936}
+.newsitem:last-child{border:0}
+.newstitle{color:var(--text);font-size:11px;line-height:1.4}
+.newsmeta{color:var(--muted);font:9px monospace;margin-top:5px}
+.forecast{padding:9px;background:var(--panel2);border-radius:4px;margin-top:7px}
+.forecast b{font:13px monospace}
+.warning{font-size:10px;color:var(--amber);line-height:1.5;margin-top:10px}
+.muted{color:var(--muted)}
+.small{font:10px monospace;color:var(--muted)}
+.section{margin-top:14px}
+.footer{margin-top:18px;border-top:1px solid var(--line);padding:12px 0;color:var(--muted);font:9px monospace}
+@media(max-width:1150px){.company-grid{grid-template-columns:repeat(5,1fr)}}
+@media(max-width:850px){.shell{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line)}.sidebar .navlabel,.sidebar-foot{display:none}.sidebar nav{display:grid;grid-template-columns:repeat(4,1fr)}.grid-main,.two{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.content{padding:12px}.company-grid{grid-template-columns:repeat(2,1fr)}.top{padding:0 10px}.chart-box{height:280px}}
 </style>
 </head>
 <body>
 <div class="shell">
-  <aside class="sidebar">
-    <div class="brand">LION<span>ARE</span></div>
-    <div class="brand-sub">FINANCIAL INTELLIGENCE</div>
-    <div class="group">WORKSPACE</div>
-    <nav>
-      <button class="nav active">Overview</button>
-      <button class="nav">Markets</button>
-      <button class="nav">Macro</button>
-      <button class="nav">FX</button>
-      <button class="nav">Commodities</button>
-      <button class="nav">Derivatives</button>
-      <button class="nav">News</button>
-      <button class="nav">Research</button>
-      <button class="nav">Portfolio</button>
-      <button class="nav">Risk</button>
-      <button class="nav">LQIE</button>
-      <button class="nav">Data Lake</button>
-    </nav>
-    <div class="side-foot">LQIE ENGINE · 0.4.0<br>LOCAL RESEARCH NODE</div>
-  </aside>
+<aside class="sidebar">
+ <div class="brand">LION<b>ARE</b></div>
+ <div class="tagline">FINANCIAL INTELLIGENCE</div>
+ <div class="navlabel">WORKSTATION</div>
+ <nav>
+  <button class="nav active">Company Research</button>
+  <button class="nav">Markets</button>
+  <button class="nav">Charts</button>
+  <button class="nav">News</button>
+  <button class="nav">Macro</button>
+  <button class="nav">FX</button>
+  <button class="nav">Commodities</button>
+  <button class="nav">Derivatives</button>
+  <button class="nav">Portfolio</button>
+  <button class="nav">Risk</button>
+  <button class="nav">LQIE</button>
+  <button class="nav">Data Lake</button>
+ </nav>
+ <div class="sidebar-foot">LQIE ENGINE 0.4.0<br>LOCAL RESEARCH NODE<br>SEC FUNDAMENTALS</div>
+</aside>
 
-  <main class="main">
-    <header class="topbar">
-      <div class="crumb">LIONARE / GLOBAL INTELLIGENCE / OVERVIEW</div>
-      <div class="status"><span class="dot"></span><span id="live-label">LOCAL NODE</span></div>
-    </header>
+<main class="main">
+<header class="top">
+ <div class="breadcrumb">LIONARE / COMPANY WORKSTATION / <span id="crumb">AAPL</span></div>
+ <div class="connection" id="connection">● LOCAL NODE</div>
+</header>
 
-    <div class="content">
-      <div class="page-head">
-        <div>
-          <h1>Global Intelligence</h1>
-          <div class="sub">DATA · RESEARCH · MACRO · RISK · LQIE</div>
-        </div>
-        <div class="time" id="clock">LOCAL TIME</div>
-      </div>
+<div class="content">
+ <div class="row">
+  <div>
+   <h1>Company Workstation</h1>
+   <div class="sub">10 COMPANIES · HISTORICAL FUNDAMENTALS · LQIE RESEARCH</div>
+  </div>
+  <input id="search" placeholder="Search ticker / company" autocomplete="off">
+ </div>
 
-      <div class="grid4">
-        <div class="card">
-          <div class="k-label">DATA LAKE STORAGE</div>
-          <div class="k-value" id="storage">—</div>
-          <div class="k-note">Bronze / Silver / Gold</div>
-        </div>
-        <div class="card">
-          <div class="k-label">SILVER DATASETS</div>
-          <div class="k-value" id="dataset-count">—</div>
-          <div class="k-note">Queryable Parquet tables</div>
-        </div>
-        <div class="card">
-          <div class="k-label">NEWS HEADLINES</div>
-          <div class="k-value" id="headline-count">—</div>
-          <div class="k-note">Official publisher feeds</div>
-        </div>
-        <div class="card">
-          <div class="k-label">SOURCE PROBES UP</div>
-          <div class="k-value" id="source-count">—</div>
-          <div class="k-note" id="health-time">Waiting for health check</div>
-        </div>
-      </div>
+ <div class="company-grid" id="companies">
+  <div class="muted">Loading company universe…</div>
+ </div>
 
-      <div class="two">
-        <section class="card">
-          <div class="card-head">
-            <div class="card-title">SOURCE HEALTH</div>
-            <span class="tag">CONNECTIVITY</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>SOURCE</th><th>STATUS</th><th>LATENCY</th></tr></thead>
-              <tbody id="health-rows"><tr><td colspan="3">Waiting for live monitor…</td></tr></tbody>
-            </table>
-          </div>
-        </section>
+ <section class="panel">
+  <div class="row">
+   <div>
+    <h1 id="company-name">Apple Inc.</h1>
+    <div class="sub" id="company-meta">AAPL · TECHNOLOGY · SEC XBRL</div>
+   </div>
+   <div style="text-align:right">
+    <div class="k">PRICE FEED</div>
+    <div class="amber" style="font:11px monospace;margin-top:5px">NOT CONNECTED</div>
+   </div>
+  </div>
 
-        <section class="card">
-          <div class="card-head">
-            <div class="card-title">MARKET DATA STATUS</div>
-            <span class="tag">FEED ENTITLEMENTS</span>
-          </div>
-          <div class="market-placeholder">
-            <div>
-              <strong>LIVE EXCHANGE QUOTES NOT CONNECTED</strong>
-              This workstation currently displays public historical and reference datasets.
-              A licensed market-price feed is required for live exchange quotes and order books.
-            </div>
-          </div>
-        </section>
-      </div>
+  <div class="metrics">
+   <div><div class="k">LATEST ANNUAL REVENUE</div><div class="v" id="revenue">—</div><div class="note" id="revenue-date">—</div></div>
+   <div><div class="k">LATEST NET INCOME</div><div class="v" id="net-income">—</div><div class="note" id="income-date">—</div></div>
+   <div><div class="k">TOTAL ASSETS</div><div class="v" id="assets">—</div><div class="note" id="assets-date">—</div></div>
+   <div><div class="k">HISTORICAL COVERAGE</div><div class="v" id="coverage">—</div><div class="note">Available SEC annual observations</div></div>
+  </div>
+ </section>
 
-      <div class="two">
-        <section class="card">
-          <div class="card-head">
-            <div class="card-title">LATEST OFFICIAL NEWS</div>
-            <span class="tag">RSS / SOURCE LINKS</span>
-          </div>
-          <div id="news-list" class="news-list">
-            <div class="empty">No headlines collected yet. Start the live monitor.</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <div class="card-title">DATA CATALOGUE</div>
-            <span class="tag">LQIE / DUCKDB</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>DATASET</th><th>ROWS</th><th>SIZE</th></tr></thead>
-              <tbody id="dataset-rows"><tr><td colspan="3">No Parquet datasets found.</td></tr></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <section class="card">
-        <div class="card-head">
-          <div class="card-title">GDELT EVENT STREAM</div>
-          <span class="tag">15-MINUTE EVENT BATCH</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>DATE ADDED</th><th>ACTOR 1</th><th>EVENT</th><th>ACTOR 2</th><th>GOLDSTEIN</th><th>SOURCE</th></tr>
-            </thead>
-            <tbody id="event-rows"><tr><td colspan="6">Waiting for GDELT event batch.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <div class="footer">
-        LIONARE TERMINAL 0.4 · LOCAL DATA NODE · SOURCE PROVENANCE PRESERVED
-        <span style="float:right" id="last-refresh">NOT REFRESHED</span>
-      </div>
+ <div class="grid-main section">
+  <section class="panel">
+   <div class="row">
+    <div>
+     <h2>Historical Company Chart</h2>
+     <div class="sub" id="chart-sub">Annual reported financial data · USD millions</div>
     </div>
-  </main>
+    <span class="small" id="chart-updated">DATA LAKE</span>
+   </div>
+
+   <div class="chart-head">
+    <select id="metric">
+     <option value="revenue">Revenue</option>
+     <option value="net_income">Net income</option>
+     <option value="total_assets">Total assets</option>
+     <option value="operating_cash_flow">Operating cash flow</option>
+     <option value="operating_income">Operating income</option>
+    </select>
+    <select id="range">
+     <option value="5">5 years</option>
+     <option value="10">10 years</option>
+     <option value="16" selected>2010–2026</option>
+     <option value="0">Maximum available</option>
+    </select>
+    <select id="compare-mode">
+     <option value="absolute">Absolute USD millions</option>
+     <option value="indexed">Indexed comparison (base 100)</option>
+    </select>
+   </div>
+
+   <div class="chart-box" id="chart"></div>
+   <div class="chart-warning">
+    This chart shows reported company fundamentals, not stock prices. Annual observations update when new data is ingested.
+   </div>
+   <div class="small" style="margin-top:8px">
+    Chart engine: TradingView Lightweight Charts™ · Apache-2.0
+   </div>
+  </section>
+
+  <section class="panel">
+   <div class="row">
+    <h2>LQIE Fundamental Projection</h2>
+    <span class="small">0.4 BASELINE</span>
+   </div>
+   <div class="sub" id="forecast-method">Calculating from reported history…</div>
+   <div id="forecast-list" style="margin-top:12px">Loading…</div>
+   <div class="warning">
+    Experimental least-squares historical trend. This is not a validated neural forecast, share-price prediction or investment recommendation.
+   </div>
+   <div class="section">
+    <h2>Company Data Coverage</h2>
+    <div class="statgrid">
+     <div class="stat"><span class="k">FIRST YEAR</span><b id="first-year">—</b></div>
+     <div class="stat"><span class="k">LATEST YEAR</span><b id="last-year">—</b></div>
+     <div class="stat"><span class="k">OBSERVATIONS</span><b id="observation-count">—</b></div>
+     <div class="stat"><span class="k">MODEL R²</span><b id="r-squared">—</b></div>
+    </div>
+   </div>
+  </section>
+ </div>
+
+ <div class="two">
+  <section class="panel">
+   <div class="row"><h2>Peer Comparison</h2><span class="small">REVENUE / SELECTED METRIC</span></div>
+   <div class="chart-head">
+    <select id="peer1"></select>
+    <select id="peer2"></select>
+    <button id="compare">Compare</button>
+   </div>
+   <div class="small" id="peer-summary">Select two companies to compare their historical financials.</div>
+  </section>
+
+  <section class="panel">
+   <div class="row"><h2>Latest Financial News</h2><span class="small">OFFICIAL FEEDS</span></div>
+   <div id="news" style="margin-top:9px"><div class="muted">No collected headlines yet.</div></div>
+  </section>
+ </div>
+
+ <section class="panel section">
+  <div class="row"><h2>Reported Annual Financial History</h2><span class="small">SOURCE: SEC COMPANY FACTS</span></div>
+  <div class="tablewrap">
+   <table>
+    <thead><tr><th>YEAR</th><th>REVENUE (USD M)</th><th>NET INCOME (USD M)</th><th>ASSETS (USD M)</th><th>FILING</th></tr></thead>
+    <tbody id="financial-rows"><tr><td colspan="5">Loading SEC data…</td></tr></tbody>
+   </table>
+  </div>
+ </section>
+
+ <section class="panel section">
+  <div class="row"><h2>Data Lake & Source Health</h2><span class="small">LOCAL STORAGE</span></div>
+  <div class="tablewrap">
+   <table>
+    <thead><tr><th>DATASET</th><th>ROWS</th><th>SIZE</th></tr></thead>
+    <tbody id="datasets"><tr><td colspan="3">Loading datasets…</td></tr></tbody>
+   </table>
+  </div>
+  <div class="footer" id="footer">LIONARE TERMINAL 0.1 · LQIE 0.4 · DATA PROVENANCE PRESERVED</div>
+ </section>
+</div>
+</main>
 </div>
 
+<script src="/vendor/lightweight-charts.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const fmt = n => new Intl.NumberFormat().format(n || 0);
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
-  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+const fmtMoney = v => v == null ? "—" :
+ "$" + (Math.abs(v)>=1e9 ? (v/1e9).toFixed(2)+"B" :
+ Math.abs(v)>=1e6 ? (v/1e6).toFixed(2)+"M" : v.toFixed(0));
+const fmtM = v => v == null ? "—" :
+ (v/1e3).toLocaleString(undefined,{maximumFractionDigits:1})+"M";
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
 }[c]));
 
-async function getJSON(path) {
-  const response = await fetch(path, {cache:"no-store"});
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
-  return response.json();
+let selected = "AAPL";
+let companyCache = {};
+let chart = null;
+let mainSeries = null;
+let peerSeries = [];
+
+const PALETTE = ["#53d6a0","#60c7ec","#e9b66a","#b99af5","#ef8f9a"];
+
+async function api(path) {
+ const response = await fetch(path,{cache:"no-store"});
+ const value = await response.json();
+ if(!response.ok) throw new Error(value.error || response.statusText);
+ return value;
 }
 
-function renderHealth(health) {
-  const probes = health.probe_results || [];
-  const rss = health.rss_results || [];
-  const all = [
-    ...probes,
-    ...rss.map(x => ({
-      source: `${x.source} RSS`,
-      status: x.status,
-      latency_ms: null
-    }))
-  ];
-
-  const up = probes.filter(x => x.status === "UP").length;
-  $("source-count").textContent = `${up}/${probes.length}`;
-  $("health-time").textContent = health.checked_at_utc
-    ? `Checked ${health.checked_at_utc}` : "Waiting for health check";
-
-  $("health-rows").innerHTML = all.length ? all.map(x => `
-    <tr>
-      <td>${esc(x.source)}</td>
-      <td class="${x.status === "UP" ? "ok" : "bad"}">${esc(x.status)}</td>
-      <td>${x.latency_ms == null ? "—" : `${esc(x.latency_ms)} ms`}</td>
-    </tr>`).join("") :
-    `<tr><td colspan="3">No health report yet.</td></tr>`;
+function initChart() {
+ if(!window.LightweightCharts) {
+  $("chart").textContent="Chart library failed to load.";
+  return;
+ }
+ chart=LightweightCharts.createChart($("chart"),{
+  autoSize:true,
+  layout:{background:{type:"solid",color:"#101923"},textColor:"#aab8c6"},
+  grid:{
+   vertLines:{color:"#1e2b38"},
+   horzLines:{color:"#1e2b38"}
+  },
+  rightPriceScale:{borderColor:"#304050"},
+  timeScale:{borderColor:"#304050",timeVisible:false},
+  crosshair:{mode:LightweightCharts.CrosshairMode.Normal}
+ });
+ mainSeries=chart.addSeries(LightweightCharts.LineSeries,{
+  color:PALETTE[0],lineWidth:2,
+  priceFormat:{type:"volume",precision:2,minMove:0.01}
+ });
 }
 
-function renderDatasets(datasets) {
-  if (!Array.isArray(datasets)) datasets = [];
-  $("dataset-rows").innerHTML = datasets.length ? datasets.map(x => `
-    <tr>
-      <td>${esc(x.name)}</td>
-      <td>${fmt(x.rows)}</td>
-      <td>${(x.size_bytes / 1024).toFixed(1)} KB</td>
-    </tr>`).join("") :
-    `<tr><td colspan="3">No Parquet datasets ingested yet.</td></tr>`;
+function toChartData(records, indexed=false) {
+ let data=records || [];
+ const range=Number($("range").value);
+ if(range>0 && data.length) data=data.slice(-range);
+ const base=data.find(x=>x.usd_millions>0)?.usd_millions || 1;
+
+ return data.map(x=>({
+  time:x.date,
+  value:indexed ? x.usd_millions/base*100 : x.usd_millions/1000
+ })).filter(x=>x.time && Number.isFinite(x.value));
 }
 
-function renderNews(items) {
-  $("news-list").innerHTML = items.length ? items.slice(0,30).map(x => `
-    <div class="news-item">
-      <a class="news-title" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">
-        ${esc(x.title)}
-      </a>
-      <div class="news-meta">${esc(x.source)} · ${esc(x.published_at || x.collected_at_utc || "")}</div>
-    </div>`).join("") :
-    `<div class="empty">No official headlines collected yet.</div>`;
-}
+async function loadSeries() {
+ if(!chart) return;
+ const metric=$("metric").value;
+ const compareMode=$("compare-mode").value;
+ const peers=[$("peer1").value,$("peer2").value].filter(Boolean);
+ const symbols=[selected,...peers].join(",");
 
-function renderEvents(items) {
-  $("event-rows").innerHTML = items.length ? items.slice(0,30).map(x => `
-    <tr>
-      <td>${esc(x.date_added)}</td>
-      <td>${esc(x.actor1_name)}</td>
-      <td>${esc(x.event_code)}</td>
-      <td>${esc(x.actor2_name)}</td>
-      <td>${esc(x.goldstein_scale)}</td>
-      <td><a href="${esc(x.source_url)}" target="_blank" rel="noopener noreferrer">Open</a></td>
-    </tr>`).join("") :
-    `<tr><td colspan="6">No GDELT events available.</td></tr>`;
-}
+ try {
+  const result=await api(
+   `/api/series?symbol=${encodeURIComponent(selected)}&metric=${metric}&compare=${encodeURIComponent(peers.join(","))}`
+  );
 
-async function refresh() {
-  try {
-    const overview = await getJSON("/api/overview");
-    $("storage").textContent = `${(overview.storage_bytes / 1048576).toFixed(2)} MB`;
-    $("dataset-count").textContent = fmt(overview.dataset_count);
-    $("headline-count").textContent = fmt(overview.headline_count);
-    $("live-label").textContent = "LOCAL NODE ONLINE";
+  peerSeries.forEach(s=>chart.removeSeries(s));
+  peerSeries=[];
 
-    renderHealth(overview.health || {});
-    renderDatasets(overview.datasets || []);
+  const main=result.series.find(s=>s.symbol===selected);
+  const indexed=compareMode==="indexed";
+  mainSeries.setData(toChartData(main?.data,indexed));
 
-    const news = await getJSON("/api/news");
-    renderNews(news.headlines || []);
-    renderEvents(news.events || []);
-
-    $("last-refresh").textContent = `UI REFRESH ${new Date().toLocaleTimeString()}`;
-  } catch (error) {
-    $("live-label").textContent = "API UNAVAILABLE";
-    console.error(error);
-  }
-}
-
-function updateClock() {
-  $("clock").textContent = new Date().toLocaleString();
-}
-
-document.querySelectorAll(".nav").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".nav").forEach(x => x.classList.remove("active"));
-    button.classList.add("active");
+  result.series.filter(s=>s.symbol!==selected).forEach((item,i)=>{
+   const series=chart.addSeries(LightweightCharts.LineSeries,{
+    color:PALETTE[(i+1)%PALETTE.length],
+    lineWidth:2,
+    title:item.symbol
+   });
+   series.setData(toChartData(item.data,indexed));
+   peerSeries.push(series);
   });
+
+  $("chart-sub").textContent=
+   `${result.label} · ${indexed?"Indexed to first observation = 100":"USD billions"} · SEC annual observations`;
+
+  $("chart-updated").textContent=
+   `UPDATED ${new Date().toLocaleTimeString()}`;
+
+  chart.timeScale().fitContent();
+ } catch(error) {
+  $("chart-sub").textContent=error.message;
+ }
+}
+
+function renderCompanyCards(companies) {
+ $("companies").innerHTML=companies.map(c=>`
+  <div class="company ${c.symbol===selected?"selected":""}" data-symbol="${esc(c.symbol)}">
+   <strong>${esc(c.symbol)}</strong>
+   <span>${esc(c.name)}</span>
+  </div>`).join("");
+
+ document.querySelectorAll(".company").forEach(card=>{
+  card.addEventListener("click",()=>selectCompany(card.dataset.symbol));
+ });
+}
+
+async function renderCompanies() {
+ const companies=await api("/api/companies");
+ companies.forEach(c=>companyCache[c.symbol]=c);
+ renderCompanyCards(companies);
+
+ const options=companies.map(c=>
+  `<option value="${esc(c.symbol)}">${esc(c.symbol)}</option>`
+ ).join("");
+ $("peer1").innerHTML=options;
+ $("peer2").innerHTML=options;
+ $("peer1").value="MSFT";
+ $("peer2").value="NVDA";
+
+ const search=$("search");
+ search.addEventListener("input",()=>{
+  const q=search.value.toLowerCase();
+  const filtered=companies.filter(c=>
+   c.symbol.toLowerCase().includes(q) ||
+   c.name.toLowerCase().includes(q)
+  );
+  renderCompanyCards(filtered);
+ });
+}
+
+function putStat(id,item) {
+ $(id).textContent=item ? fmtMoney(item.value) : "—";
+}
+
+async function renderCompany() {
+ const data=await api(`/api/company?symbol=${selected}`);
+ $("crumb").textContent=selected;
+ $("company-name").textContent=data.name;
+ $("company-meta").textContent=
+  `${data.symbol} · ${data.sector} · SEC XBRL`;
+
+ putStat("revenue",data.revenue_latest);
+ putStat("net-income",data.net_income_latest);
+ putStat("assets",data.assets_latest);
+
+ $("revenue-date").textContent=data.revenue_latest?.date || "No annual filing";
+ $("income-date").textContent=data.net_income_latest?.date || "No annual filing";
+ $("assets-date").textContent=data.assets_latest?.date || "No annual filing";
+ $("coverage").textContent=data.revenue_years || "—";
+ $("first-year").textContent=data.history_start || "—";
+ $("last-year").textContent=data.history_end || "—";
+ $("observation-count").textContent=data.revenue_years || "—";
+
+ const revenue=data.metrics.revenue || [];
+ const income=data.metrics.net_income || [];
+ const assets=data.metrics.total_assets || [];
+ const byYear={};
+
+ revenue.forEach(x=>(byYear[x.year] ||= {}).revenue=x);
+ income.forEach(x=>(byYear[x.year] ||= {}).income=x);
+ assets.forEach(x=>(byYear[x.year] ||= {}).assets=x);
+
+ const years=Object.keys(byYear).map(Number).sort((a,b)=>b-a);
+ $("financial-rows").innerHTML=years.map(year=>{
+  const r=byYear[year];
+  const filing=r.revenue?.form || r.income?.form || r.assets?.form || "";
+  return `<tr>
+   <td>${year}</td>
+   <td>${r.revenue?fmtM(r.revenue.usd_millions):"—"}</td>
+   <td>${r.income?fmtM(r.income.usd_millions):"—"}</td>
+   <td>${r.assets?fmtM(r.assets.usd_millions):"—"}</td>
+   <td>${esc(filing)}</td>
+  </tr>`;
+ }).join("") || `<tr><td colspan="5">No annual observations available.</td></tr>`;
+
+ await renderForecast();
+ await loadSeries();
+}
+
+async function renderForecast() {
+ $("forecast-list").textContent="Calculating…";
+
+ try {
+  const result=await api(`/api/forecast?symbol=${selected}&metric=${$("metric").value}`);
+  $("forecast-method").textContent=result.method;
+  $("observation-count").textContent=result.observations_used;
+  $("r-squared").textContent=result.r_squared==null?"—":result.r_squared.toFixed(3);
+
+  $("forecast-list").innerHTML=result.forecasts.map(f=>`
+   <div class="forecast">
+    <div class="small">PROJECTED ${f.year}</div>
+    <b>${fmtMoney(f.value)}</b>
+   </div>`).join("");
+ } catch(error) {
+  $("forecast-method").textContent="Insufficient annual history";
+  $("forecast-list").textContent=error.message;
+  $("r-squared").textContent="—";
+ }
+}
+
+async function renderNews() {
+ const result=await api("/api/news");
+ const items=(result.headlines || []).slice(0,12);
+
+ $("news").innerHTML=items.length?items.map(item=>`
+  <div class="newsitem">
+   <a class="newstitle" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>
+   <div class="newsmeta">${esc(item.source)} · ${esc(item.published_at || "")}</div>
+  </div>`).join(""):`<div class="muted">No collected headlines yet. Run the live monitor.</div>`;
+}
+
+async function renderDatasets() {
+ const result=await api("/api/overview");
+ const datasets=result.datasets;
+ if(!Array.isArray(datasets)) return;
+
+ $("datasets").innerHTML=datasets.map(item=>`
+  <tr><td>${esc(item.name)}</td><td>${Number(item.rows).toLocaleString()}</td><td>${(item.size_bytes/1024).toFixed(1)} KB</td></tr>`
+ ).join("") || `<tr><td colspan="3">No datasets yet.</td></tr>`;
+
+ $("footer").textContent=
+  `LIONARE TERMINAL 0.1 · LQIE 0.4 · ${ (result.storage_bytes/1048576).toFixed(2) } MB · UPDATED ${result.last_fundamentals_update || "UNKNOWN"}`;
+}
+
+async function selectCompany(symbol) {
+ if(!companyCache[symbol]) return;
+ selected=symbol;
+ $("connection").textContent="● LOCAL NODE ONLINE";
+ renderCompanyCards(Object.values(companyCache));
+ await renderCompany();
+}
+
+$("metric").addEventListener("change",async()=>{
+ await loadSeries();
+ await renderForecast();
+});
+$("range").addEventListener("change",loadSeries);
+$("compare-mode").addEventListener("change",loadSeries);
+$("compare").addEventListener("click",loadSeries);
+
+document.querySelectorAll(".nav").forEach(button=>{
+ button.addEventListener("click",()=>{
+  document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));
+  button.classList.add("active");
+ });
 });
 
-updateClock();
-refresh();
-setInterval(updateClock, 1000);
-setInterval(refresh, 30000);
+async function start() {
+ initChart();
+ await renderCompanies();
+ await selectCompany("AAPL");
+ await renderNews();
+ await renderDatasets();
+}
+
+start().catch(error=>{
+ $("connection").textContent="● API ERROR";
+ $("company-meta").textContent=error.message;
+ console.error(error);
+});
+
+setInterval(()=>{
+ renderCompany().catch(console.error);
+ renderNews().catch(console.error);
+ renderDatasets().catch(console.error);
+},60000);
 </script>
 </body>
 </html>
