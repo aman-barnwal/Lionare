@@ -56,3 +56,23 @@ artifacts/
 __pycache__/
 .pytest_cache/
 *.py[cod]
+
+# Python virtual environments - never commit
+/.venv/
+/.venv-*/
+/.venv-desktop/
+/venv/
+/venvs/
+**/.venv/
+**/.venv-*/
+**/venv/
+**/venvs/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
