@@ -1,0 +1,2 @@
+# Native desktop UI only. Keep separate from the LQIE backend environment.
+PySide6>=6.10,<6.12
