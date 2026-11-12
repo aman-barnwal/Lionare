@@ -1,0 +1,270 @@
+(venv) ishendra@Aman-Barnwal077:/mnt/c/lionare$ cd /mnt/c/lionare
+source venv/bin/activate
+set -euo pipefail
+
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+
+echo "========== LQIE PATTERN TESTS =========="
+python -m pytest -v tests/test_pattern_engine.py
+
+echo
+echo "========== FULL LQIE TEST SUITE =========="
+python -m pytest -q
+
+echo
+echo "========== COMPILE CHECK =========="
+python -m compileall -q src/lqie scripts tests
+
+echo
+echo "========== PATTERN ENGINE IMPORT =========="
+python - <<'PY'
+from lqie.patterns import PatternEngine
+from lqie.features.pattern_features import build_pattern_feature_row
+
+print("PatternEngine:", PatternEngine)
+print("Feature builder:", build_pattern_feature_row)
+print("LQIE pattern package ready.")
+PY
+========== LQIE PATTERN TESTS ==========
+=========================== test session starts ============================
+platform linux -- Python 3.12.3, pytest-9.2.0, pluggy-1.7.0 -- /mnt/c/lionare/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /mnt/c/lionare
+configfile: pytest.ini
+plugins: anyio-4.16.0, platformdirs-4.14.5
+collected 7 items
+
+tests/test_pattern_engine.py::test_normalize_ohlcv PASSED            [ 14%]
+tests/test_pattern_engine.py::test_invalid_ohlc_rejected PASSED      [ 28%]
+tests/test_pattern_engine.py::test_duplicate_timestamps_rejected PASSED [ 42%]
+tests/test_pattern_engine.py::test_talib_bullish_engulfing_detection PASSED [ 57%]
+tests/test_pattern_engine.py::test_engine_calculates_indicators PASSED [ 71%]
+tests/test_pattern_engine.py::test_engine_returns_standardised_detections PASSED [ 85%]
+tests/test_pattern_engine.py::test_pattern_feature_generation PASSED [100%]
+
+============================ 7 passed in 22.02s ============================
+
+========== FULL LQIE TEST SUITE ==========
+.................................................................... [ 93%]
+.....                                                                [100%]
+73 passed in 58.68s
+
+========== COMPILE CHECK ==========
+
+========== PATTERN ENGINE IMPORT ==========
+PatternEngine: <class 'lqie.patterns.engine.PatternEngine'>
+Feature builder: <function build_pattern_feature_row at 0x7c0bf40e0e00>
+LQIE pattern package ready.
+(venv) ishendra@Aman-Barnwal077:/mnt/c/lionare$ cd /mnt/c/lionare
+source venv/bin/activate
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+
+python scripts/run_lqie_patterns.py \
+  --file /path/to/your/market_candles.csv \
+  --symbol NVDA \
+  --timeframe 1d
+Input file not found: /path/to/your/market_candles.csv
+PS C:\lionare> wsl
+ishendra@Aman-Barnwal077:/mnt/c/lionare$
+cd /mnt/c/lionare
+source venv/bin/activate
+set -euo pipefail
+
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+
+echo "========== GENERATING SYNTHETIC TEST CANDLES =========="
+
+python - <<'PY'
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+rng = np.random.default_rng(42)
+n = 350
+x = np.arange(n)
+
+close = (
+    100
+    + 0.06 * x
+    + 5 * np.sin(x / 8)
+    + 2 * np.sin(x / 23)
+    + rng.normal(0, 0.35, n)
+)
+
+open_price = close + rng.normal(0, 0.4, n)
+high = np.maximum(open_price, close) + rng.uniform(0.1, 1.0, n)
+low = np.minimum(open_price, close) - rng.uniform(0.1, 1.0, n)
+
+# Explicitly create a bullish engulfing example near the end.
+open_price[-2], close[-2] = 112.0, 110.0
+high[-2], low[-2] = 113.0, 109.0
+
+open_price[-1], close[-1] = 109.0, 114.0
+high[-1], low[-1] = 115.0, 108.0
+
+frame = pd.DataFrame({
+    "Date": pd.date_range(
+        "2025-01-01", periods=n, freq="D"
+    ),
+echo "LQIE PATTERN ENGINE SMOKE TEST COMPLETE"==="===="is=1)).all())
+========== GENERATING SYNTHETIC TEST CANDLES ==========
+Synthetic test file: /tmp/lqie_synthetic_test.csv
+Candles: 350
+First candle: 2025-01-01 00:00:00
+Last candle: 2025-12-16 00:00:00
+OHLC validation: PASSED
+
+========== RUNNING ALL LQIE DETECTORS ==========
+========== LQIE 0.5 PATTERN ANALYSIS ==========
+Symbol: SYNTHETIC_NVDA_TEST
+Timeframe: 1d
+Input: /tmp/lqie_synthetic_test.csv
+Bars: 350
+candlesticks: 1 detections
+trendlines ERROR: AttributeError: 'DataFrame' object has no attribute 'append'
+harmonics: 0 detections
+regimes: 0 detections
+Detection Parquet: /home/ishendra/lionare-data/gold/features/patterns/SYNTHETIC_NVDA_TEST_1d_20261111T163924Z.parquet
+
+========== RESULTS ==========
+Bars analysed: 350
+Latest candle: 2025-12-16T00:00:00+00:00
+Indicators: 13
+Pattern detections: 1
+[talib] engulfing | bullish | projected=False
+
+Detector errors: {'trendlines': {'type': 'AttributeError', 'message': "'DataFrame' object has no attribute 'append'"}}
+JSON report: /home/ishendra/lionare-data/gold/features/patterns/SYNTHETIC_NVDA_TEST_1d_20261111T163924Z.json
+Feature report: /home/ishendra/lionare-data/gold/features/patterns/SYNTHETIC_NVDA_TEST_1d_20261111T163924Z_features.json
+WARNING: One or more detector engines reported errors.
+
+========== VERIFYING OUTPUT ==========
+SYNTHETIC_NVDA_TEST_1d_20261111T163924Z.parquet 8 KB
+SYNTHETIC_NVDA_TEST_1d_20261111T163924Z.json 4 KB
+SYNTHETIC_NVDA_TEST_1d_20261111T163924Z_features.json 4 KB
+
+========== FULL REGRESSION TESTS ==========
+.................................................................... [ 93%]
+.....                                                                [100%]
+73 passed in 77.35s (0:01:17)
+
+LQIE PATTERN ENGINE SMOKE TEST COMPLETE
+(venv) ishendra@Aman-Barnwal077:/mnt/c/lionare$ python - <<'PY'
+import pathlib
+import pytrendline
+import pandas as pd
+
+roots = [
+    pathlib.Path("src/lqie/patterns/trendlines.py"),
+    pathlib.Path(pytrendline.__file__).resolve().parent,
+]
+
+print("Pandas:", pd.__version__)
+print("PyTrendline:", pytrendline.__file__)
+print("\n========== APPEND CALLS ==========")
+
+for root in roots:
+    files = [root] if root.is_file() else list(root.rglob("*.py"))
+    for file in files:
+        try:
+            lines = file.read_text().splitlines()
+        except Exception:
+            continue
+
+        for i, line in enumerate(lines):
+            if ".append(" in line or ".append (" in line:
+                start = max(0, i - 2)
+                end = min(len(lines), i + 3)
+                print(f"\n{file}:{i + 1}")
+                for n in range(start, end):
+                    print(f"{n + 1}: {lines[n]}")
+PY
+Pandas: 3.1.1
+PyTrendline: /mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/__init__.py
+
+========== APPEND CALLS ==========
+
+src/lqie/patterns/trendlines.py:107
+105:             }
+106:
+107:             detections.append(
+108:                 PatternDetection(
+109:                     symbol=symbol.upper(),
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/detect.py:308
+306:           if abs(trend_price_at_k - pseries[k]) < max_allowable_error_pt_to_trend:
+307:             num_points += 1
+308:             points_in_trendline.append(k)
+309:             prices_in_trendline.append(trend_price_at_k)
+310:
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/detect.py:309
+307:             num_points += 1
+308:             points_in_trendline.append(k)
+309:             prices_in_trendline.append(trend_price_at_k)
+310:
+311:         # Check if we have the minimum required number of points for trend
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/detect.py:343
+341:           price_at_trendline = prices_in_trendline[w]
+342:           price_actual = pseries[point_index]
+343:           err_distances.append(abs(price_at_trendline - price_actual))
+344:
+345:         score = config.get("scoring_function", DEFAULT_CONFIG["scoring_function"])(candlestick_data, err_distances, num_points, slope)
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/detect.py:347
+345:         score = config.get("scoring_function", DEFAULT_CONFIG["scoring_function"])(candlestick_data, err_distances, num_points, slope)
+346:
+347:         trends_df = trends_df.append({
+348:           'id':              pointset_id,
+349:           'trendtype':       tt,
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:87
+85:     pointset_indeces = []
+86:     for date in self.pointset_dates:
+87:       pointset_indeces.append( candles_df.loc[candles_df['Date'] == date].index[0] )
+88:
+89:     pt_set_y = []
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:94
+92:     for pt in pt_set_x:
+93:       if self.type == structs.TrendlineTypes.RESISTANCE:
+94:         pt_set_y.append(candles_df.iloc[pt].High)
+95:       elif self.type == structs.TrendlineTypes.SUPPORT:
+96:         pt_set_y.append(candles_df.iloc[pt].Low)
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:96
+94:         pt_set_y.append(candles_df.iloc[pt].High)
+95:       elif self.type == structs.TrendlineTypes.SUPPORT:
+96:         pt_set_y.append(candles_df.iloc[pt].Low)
+97:       else:
+98:         pt_set_y.append(candles_df.iloc[pt].Low)
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:98
+96:         pt_set_y.append(candles_df.iloc[pt].Low)
+97:       else:
+98:         pt_set_y.append(candles_df.iloc[pt].Low)
+99:
+100:     # Calculate slope and intersect using first point and last point
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:226
+224:     pivot_panda_ts = candles_df.iloc[pivot_idx].name
+225:     pivot_y_val = candles_df.iloc[pivot_idx][col]
+226:     pivots_x_vals.append(pivot_panda_ts)
+227:     pivots_y_vals.append(pivot_y_val)
+228:   p.diamond(pivots_x_vals, pivots_y_vals, size=20, line_color="green", fill_alpha=0.1, alpha=0.5)
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/plot.py:227
+225:     pivot_y_val = candles_df.iloc[pivot_idx][col]
+226:     pivots_x_vals.append(pivot_panda_ts)
+227:     pivots_y_vals.append(pivot_y_val)
+228:   p.diamond(pivots_x_vals, pivots_y_vals, size=20, line_color="green", fill_alpha=0.1, alpha=0.5)
+229:
+
+/mnt/c/lionare/venv/lib/python3.12/site-packages/pytrendline/util.py:14
+12:   for idx, val in series.items():
+13:     if val == global_max_or_min or abs(global_max_or_min - val ) < tolerance_threshold:
+14:       isolated_globals.append(idx)
+15:   return isolated_globals
+16:
+(venv) ishendra@Aman-Barnwal077:/mnt/c/lionare$
