@@ -76,3 +76,6 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Isolated MLFinPy environment
+/.venvs/
