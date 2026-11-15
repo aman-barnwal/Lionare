@@ -1,0 +1,35 @@
+
+[project]
+name = "lionare-lqie"
+version = "0.3.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "numpy>=2.0",
+]
+
+[project.optional-dependencies]
+
+dev = [
+    "pytest>=9.0",
+]
+
+data = [
+    "polars>=2.1",
+    "pyarrow",
+    "duckdb",
+    "scikit-learn>=1.9",
+]
+
+openbb = [
+    "openbb-core[pandas]",
+    "openbb-sec",
+    "openbb-fred",
+    "openbb-cboe",
+    "openbb-nasdaq",
+    "openbb-news",
+]
+
+all = [
+    "lionare-lqie[dev,data,openbb]",
+]
+
