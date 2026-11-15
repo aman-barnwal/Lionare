@@ -39,8 +39,8 @@ class LionareMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
-        self.resize(1640, 980)
-        self.setMinimumSize(QSize(1180, 760))
+        self.resize(1780, 1020)
+        self.setMinimumSize(QSize(1360, 820))
         self.settings = QSettings("Lionex", "LionareDesktop_0_1_4")
         self.backend = BackendClient(API_BASE_URL, self)
         self.backend.received.connect(self._on_backend_data)
@@ -92,7 +92,7 @@ class LionareMainWindow(QMainWindow):
 
     def _build_chrome(self):
         header = QWidget(); header.setObjectName("appHeader")
-        row = QHBoxLayout(header); row.setContentsMargins(18, 8, 18, 8); row.setSpacing(14)
+        row = QHBoxLayout(header); row.setContentsMargins(12, 4, 12, 4); row.setSpacing(10)
         brand = QLabel("LIONARE"); brand.setObjectName("brandMark"); row.addWidget(brand)
         descriptor = QLabel("FINANCIAL INTELLIGENCE"); descriptor.setObjectName("brandDescriptor"); row.addWidget(descriptor)
         self.engine_badge = QLabel("●  CONNECTING"); self.engine_badge.setObjectName("badgeWarn"); row.addWidget(self.engine_badge)
@@ -102,7 +102,7 @@ class LionareMainWindow(QMainWindow):
         self._header_widget = header
 
         ticker = QWidget(); ticker.setObjectName("tickerStrip")
-        ticker_row = QHBoxLayout(ticker); ticker_row.setContentsMargins(16, 5, 16, 5); ticker_row.setSpacing(8)
+        ticker_row = QHBoxLayout(ticker); ticker_row.setContentsMargins(10, 3, 10, 3); ticker_row.setSpacing(5)
         tag = QLabel("REFERENCE WATCH"); tag.setObjectName("tickerCaption"); ticker_row.addWidget(tag)
         self.ticker_labels: list[QLabel] = []
         for symbol, _ in WATCHLIST[:8]:
@@ -111,7 +111,7 @@ class LionareMainWindow(QMainWindow):
         self.connection_text = QLabel("NO LIVE PRICE FEED"); self.connection_text.setObjectName("tickerStatus"); ticker_row.addWidget(self.connection_text)
 
         nav = QWidget(); nav.setObjectName("navStrip")
-        nav_row = QHBoxLayout(nav); nav_row.setContentsMargins(14, 7, 14, 7); nav_row.setSpacing(7)
+        nav_row = QHBoxLayout(nav); nav_row.setContentsMargins(9, 3, 9, 3); nav_row.setSpacing(3)
         self.nav_buttons: dict[str, QPushButton] = {}
         for name in WORKSPACES:
             button = QPushButton(name); button.setObjectName("navButton"); button.setCheckable(True)
@@ -121,7 +121,7 @@ class LionareMainWindow(QMainWindow):
         self.workspace_tag = QLabel("DASHBOARD"); self.workspace_tag.setObjectName("workspaceTag"); nav_row.addWidget(self.workspace_tag)
 
         outer = QWidget(); outer_layout = QVBoxLayout(outer); outer_layout.setContentsMargins(0, 0, 0, 0); outer_layout.setSpacing(0)
-        outer_layout.addWidget(header); outer_layout.addWidget(ticker); outer_layout.addWidget(nav)
+        outer_layout.addWidget(header); outer_layout.addWidget(nav); outer_layout.addWidget(ticker)
         self._chrome_widget = outer
 
     def _build_pages(self):
@@ -183,7 +183,7 @@ class LionareMainWindow(QMainWindow):
         self.status.showMessage("WORKSPACE SAVED", 2500)
 
     def reset_workspace(self):
-        self.settings.clear(); self.resize(1640, 980); self.activate_workspace("DASHBOARD")
+        self.settings.clear(); self.resize(1780, 1020); self.activate_workspace("DASHBOARD")
         self.status.showMessage("DEFAULT WORKSPACE RESTORED", 2500)
 
     def refresh_all(self):
@@ -246,6 +246,7 @@ class LionareMainWindow(QMainWindow):
         self.engine_badge.setObjectName("badgeGood" if online else "badgeWarn")
         self.engine_badge.style().unpolish(self.engine_badge); self.engine_badge.style().polish(self.engine_badge)
         self.system.card.set_backend(online, detail)
+        self.dashboard.set_backend(online, detail) if hasattr(self, "dashboard") else None
         if online:
             self.connection_text.setText("FUNDAMENTALS ONLINE · QUOTES NOT CONNECTED")
 
@@ -263,6 +264,7 @@ class LionareMainWindow(QMainWindow):
             if isinstance(payload, dict) and payload.get("symbol") == self.current_symbol:
                 self.company_payload = payload
                 self.equity.set_company(payload)
+                self.dashboard.update_company(payload)
         elif route == "/api/series":
             incoming = payload if isinstance(payload, dict) else {}
             series = incoming.get("series", [])
@@ -291,6 +293,7 @@ class LionareMainWindow(QMainWindow):
             self.dashboard.update_news_count(len(self.news_payload.get("headlines", [])), len(self.news_payload.get("events", [])))
         elif route == "/api/health":
             self.system.card.update_health(payload)
+            self.dashboard.update_health(payload)
         elif route == "/api/lqie/status":
             self.quant.card.update_status(payload)
         elif route == "/api/lqie/runs":
@@ -320,56 +323,72 @@ class LionareMainWindow(QMainWindow):
 
     def _theme(self):
         self.setStyleSheet(r"""
-        QMainWindow, QWidget { background:#0a1018; color:#dce6ef; font-family:'Segoe UI'; font-size:9pt; }
-        QMenuBar { background:#080d13; color:#b9c7d5; padding:5px 8px; border-bottom:1px solid #1d2b39; }
-        QMenuBar::item { padding:6px 12px; } QMenuBar::item:selected { background:#182938; }
-        QMenu { background:#111c28; border:1px solid #2b4053; } QMenu::item { padding:7px 22px; }
-        QWidget#appHeader { background:#0b121b; border-bottom:1px solid #213244; }
-        QLabel#brandMark { color:#42d7b2; font-size:22pt; font-weight:900; letter-spacing:2px; }
-        QLabel#brandDescriptor { color:#7f95a9; font-size:8pt; letter-spacing:2px; }
-        QLabel#badgeGood { color:#4bddb6; font-family:Consolas; font-weight:700; padding:5px 10px; background:#102a27; border:1px solid #1f5147; border-radius:4px; }
-        QLabel#badgeWarn { color:#e6ad5a; font-family:Consolas; font-weight:700; padding:5px 10px; background:#2b2115; border:1px solid #5b4526; border-radius:4px; }
-        QLabel#clockLabel { color:#dfb16b; font-family:Consolas; font-size:9pt; }
-        QWidget#tickerStrip { background:#0e1722; border-bottom:1px solid #1c2c3d; }
-        QLabel#tickerCaption { color:#d2a35b; font-family:Consolas; font-size:8pt; font-weight:700; }
-        QLabel#tickerPill { color:#a8bfd2; background:#121f2d; border:1px solid #223649; border-radius:3px; padding:6px 9px; font-family:Consolas; font-size:8pt; }
-        QLabel#tickerStatus { color:#d4a65f; font-family:Consolas; font-size:8pt; }
-        QWidget#navStrip { background:#0b121a; border-bottom:1px solid #27394b; }
-        QPushButton#navButton { background:transparent; border:1px solid transparent; border-radius:4px; color:#9fb1c2; padding:9px 13px; font-size:8pt; font-weight:700; }
-        QPushButton#navButton:hover { background:#142232; border-color:#2a4054; color:#edf4fa; }
-        QPushButton#navButton:checked { background:#14352f; color:#57dfbb; border:1px solid #2d9e83; }
-        QLabel#workspaceTag { color:#4bd8b5; font-family:Consolas; font-size:8pt; padding:0 9px; }
-        QPushButton { background:#142130; color:#c2d0dc; border:1px solid #2a4053; border-radius:4px; padding:7px 12px; }
-        QPushButton:hover { background:#1b3042; border-color:#3c9e89; }
-        QPushButton#secondaryButton { background:#111e2b; color:#afc2d3; }
-        QWidget#pageRoot { background:#0a1018; }
-        QLabel#pageTitle { color:#edf3f8; font-size:17pt; font-weight:700; }
-        QLabel#pageSubtitle { color:#8399ad; font-size:9pt; }
-        QFrame#surfaceCard { background:#101b28; border:1px solid #263a4d; border-radius:7px; }
-        QLabel#cardHeading { color:#dce7f0; font-size:10pt; font-weight:700; }
-        QLabel#cardMeta { color:#7992a8; font-family:Consolas; font-size:7pt; }
-        QFrame#metricCard { background:#132232; border:1px solid #294055; border-radius:6px; }
-        QLabel#metricLabel { color:#829ab0; font-family:Consolas; font-size:7pt; font-weight:700; }
-        QLabel#metricValue { color:#edf5fa; font-size:15pt; font-weight:700; }
-        QLabel#metricDetail { color:#8299ae; font-size:8pt; }
-        QLabel#companyHero { color:#f0f5f9; font-size:16pt; font-weight:700; }
-        QLabel#smallMuted { color:#8499ac; font-size:8pt; }
-        QLabel#warningText { color:#e2ad61; font-size:8pt; }
-        QComboBox { background:#0c1722; color:#dce8f0; border:1px solid #2a4054; border-radius:4px; padding:7px 10px; min-height:22px; }
-        QComboBox QAbstractItemView { background:#111d29; color:#e0e9f1; selection-background-color:#1a3b43; border:1px solid #2b4155; }
-        QTableWidget { background:#0c1621; alternate-background-color:#101d2a; color:#d1deea; border:1px solid #24394c; border-radius:4px; gridline-color:transparent; selection-background-color:#19404a; selection-color:#fff; outline:0; }
-        QHeaderView::section { background:#142333; color:#91a7ba; border:0; border-bottom:1px solid #2b4054; padding:8px 9px; font-size:8pt; font-weight:700; }
-        QTableWidget::item { padding:6px 8px; border-bottom:1px solid #1b2b3b; }
-        QListWidget { background:#0c1621; color:#d1deea; border:1px solid #24394c; border-radius:4px; outline:0; }
-        QListWidget::item { padding:10px 11px; border-bottom:1px solid #1d2d3c; }
-        QListWidget::item:selected { background:#163443; }
-        QTabWidget::pane { border:1px solid #26394b; background:#0c1621; border-radius:4px; }
-        QTabBar::tab { background:#111d29; color:#90a6b9; padding:9px 16px; border:1px solid #26394b; }
-        QTabBar::tab:selected { background:#17332f; color:#50dcb6; border-bottom:2px solid #42c9a6; }
-        QSplitter::handle { background:#0a1018; width:5px; height:5px; }
-        QStatusBar { background:#080d13; color:#8da5b8; border-top:1px solid #243749; font-family:Consolas; font-size:8pt; }
-        QScrollBar:vertical { background:#0b131c; width:10px; } QScrollBar::handle:vertical { background:#2b4053; min-height:24px; border-radius:4px; }
-        QScrollBar:horizontal { background:#0b131c; height:9px; } QScrollBar::handle:horizontal { background:#2b4053; min-width:22px; border-radius:4px; }
+        QMainWindow, QWidget { background:#090b0e; color:#e5e9ed; font-family:'Segoe UI'; font-size:9pt; }
+        QMenuBar { background:#080a0c; color:#c1c8cf; padding:2px 7px; border-bottom:1px solid #252b31; }
+        QMenuBar::item { padding:5px 10px; } QMenuBar::item:selected { background:#171d23; }
+        QMenu { background:#101419; border:1px solid #303840; } QMenu::item { padding:6px 20px; }
+        QWidget#appHeader { background:#090b0e; border-bottom:1px solid #252c32; }
+        QLabel#brandMark { color:#19d49a; font-size:17pt; font-weight:900; letter-spacing:2px; }
+        QLabel#brandDescriptor { color:#8a969f; font-size:7pt; letter-spacing:2px; }
+        QLabel#badgeGood { color:#19d99b; font-family:Consolas; font-size:8pt; font-weight:700; padding:4px 9px; background:#0c211a; border:1px solid #19533c; border-radius:2px; }
+        QLabel#badgeWarn { color:#f1b34f; font-family:Consolas; font-size:8pt; font-weight:700; padding:4px 9px; background:#241b0e; border:1px solid #62491f; border-radius:2px; }
+        QLabel#clockLabel { color:#f0b34f; font-family:Consolas; font-size:8pt; }
+        QWidget#tickerStrip { background:#0d1115; border-top:1px solid #1e252b; border-bottom:1px solid #2b333b; }
+        QLabel#tickerCaption { color:#e8a53b; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QLabel#tickerPill { color:#d3dbe2; background:#11171c; border:1px solid #303840; border-radius:1px; padding:4px 8px; font-family:Consolas; font-size:8pt; }
+        QLabel#tickerStatus { color:#e5ab45; font-family:Consolas; font-size:7pt; }
+        QWidget#navStrip { background:#0a0d10; border-bottom:1px solid #303840; }
+        QPushButton#navButton { background:transparent; border:1px solid transparent; border-radius:1px; color:#b2bbc3; padding:7px 11px; font-size:8pt; font-weight:700; }
+        QPushButton#navButton:hover { background:#171e24; border-color:#3b464f; color:#f0f3f6; }
+        QPushButton#navButton:checked { background:#123526; color:#20d99d; border:1px solid #267452; }
+        QLabel#workspaceTag { color:#20d99d; font-family:Consolas; font-size:7pt; padding:0 7px; }
+        QPushButton { background:#131a20; color:#d3dbe2; border:1px solid #37414a; border-radius:1px; padding:5px 11px; }
+        QPushButton:hover { background:#1b252d; border-color:#25805e; }
+        QPushButton#secondaryButton { background:#11171c; color:#c4cdd5; }
+        QWidget#pageRoot { background:#090b0e; }
+        QLabel#terminalPageTitle { color:#f1f3f5; font-size:12pt; font-weight:800; letter-spacing:1px; }
+        QLabel#terminalPageSubtitle { color:#929da6; font-family:Consolas; font-size:7pt; }
+        QLabel#terminalPageStatus { color:#19d49a; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QFrame#terminalStat { background:#0d1216; border:0; border-bottom:1px solid #313940; }
+        QLabel#terminalStatLabel { color:#8e9aa4; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QLabel#terminalStatValue { color:#e4e9ed; font-family:Consolas; font-size:9pt; font-weight:700; }
+        QFrame#terminalStatDivider { background:#303941; }
+        QFrame#surfaceCard { background:#0c1014; border:1px solid #303840; border-radius:1px; }
+        QLabel#cardHeading { color:#edf1f4; font-size:9pt; font-weight:800; letter-spacing:.3px; }
+        QLabel#cardMeta { color:#9aa5ae; font-family:Consolas; font-size:7pt; }
+        QFrame#metricCard { background:#11171c; border:1px solid #303840; border-radius:1px; }
+        QLabel#metricLabel { color:#98a3ac; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QLabel#metricValue { color:#f1f4f6; font-family:Consolas; font-size:13pt; font-weight:700; }
+        QLabel#metricDetail { color:#9aa5ae; font-size:8pt; }
+        QLabel#companyHero { color:#f2f5f7; font-size:15pt; font-weight:800; }
+        QLabel#smallMuted { color:#9ba6af; font-size:8pt; }
+        QLabel#warningText { color:#efb34f; font-size:8pt; }
+        QLabel#focusCompany { color:#eef2f5; font-size:10pt; font-weight:800; padding:3px 1px; }
+        QLabel#portfolioMetricLabel { color:#8f9ba5; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QLabel#portfolioMetricValue { color:#f0f3f5; font-family:Consolas; font-size:14pt; font-weight:700; }
+        QWidget#pulseRow { background:#10161b; border-bottom:1px solid #263039; }
+        QLabel#pulseLabel { color:#96a2ac; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QLabel#pulseGood { color:#1bd99b; font-family:Consolas; font-size:8pt; font-weight:700; }
+        QLabel#pulseWarn { color:#f0b34f; font-family:Consolas; font-size:8pt; font-weight:700; }
+        QLabel#pulseBad { color:#ff625c; font-family:Consolas; font-size:8pt; font-weight:700; }
+        QLabel#pulseMuted { color:#b2bdc6; font-family:Consolas; font-size:8pt; }
+        QLabel#pulseNote { color:#929da6; font-size:7pt; padding:4px 1px; }
+        QComboBox { background:#0c1115; color:#e0e6eb; border:1px solid #39434c; border-radius:1px; padding:5px 9px; min-height:20px; font-size:8pt; }
+        QComboBox QAbstractItemView { background:#11171c; color:#e0e7ed; selection-background-color:#174333; border:1px solid #303a43; }
+        QTableWidget { background:#090d11; alternate-background-color:#0f1419; color:#dce3e8; border:1px solid #2a333b; border-radius:1px; gridline-color:transparent; selection-background-color:#17402f; selection-color:#fff; outline:0; font-family:Consolas; font-size:8pt; }
+        QHeaderView::section { background:#141b21; color:#a4afb8; border:0; border-bottom:1px solid #38434c; padding:3px 7px; font-family:Consolas; font-size:7pt; font-weight:700; }
+        QTableWidget::item { padding:1px 6px; border-bottom:1px solid #1f282f; }
+        QListWidget { background:#090d11; color:#dce3e8; border:1px solid #2c353d; border-radius:1px; outline:0; font-size:8pt; }
+        QListWidget::item { padding:8px 9px; border-bottom:1px solid #202930; }
+        QListWidget::item:selected { background:#153b2c; }
+        QTabWidget::pane { border:1px solid #2b353e; background:#0a0e12; border-radius:1px; }
+        QTabBar::tab { background:#11171c; color:#a5b0b9; padding:7px 13px; border:1px solid #2c353d; font-size:8pt; }
+        QTabBar::tab:selected { background:#143a2b; color:#20d99d; border-bottom:2px solid #19c98f; }
+        QSplitter::handle { background:#252e35; width:4px; height:4px; }
+        QSplitter::handle:hover { background:#16845f; }
+        QStatusBar { background:#080a0c; color:#aab5be; border-top:1px solid #2b343c; font-family:Consolas; font-size:8pt; }
+        QScrollBar:vertical { background:#090d10; width:9px; } QScrollBar::handle:vertical { background:#3b464f; min-height:24px; border-radius:1px; }
+        QScrollBar:horizontal { background:#090d10; height:9px; } QScrollBar::handle:horizontal { background:#3b464f; min-width:24px; border-radius:1px; }
         """)
 
     def closeEvent(self, event):
