@@ -1,487 +1,811 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import json
+import math
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
-    QComboBox,
-    QFrame,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
+    QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QListWidget,
+    QListWidgetItem, QSplitter, QTabWidget, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget, QHeaderView, QSizePolicy, QPushButton
 )
+from PySide6.QtCore import QUrl
 
-from ..config import DATA_LAKE_ROOT, GLOBAL_MARKETS, WATCHLIST
+from ..config import FUNDAMENTAL_METRICS, GLOBAL_MARKETS, WATCHLIST
 
 
-def _text(value: Any, fallback: str = "—") -> str:
+COLORS = {
+    "bg": "#0a1018", "surface": "#101b28", "surface2": "#132131",
+    "border": "#243649", "grid": "#203143", "text": "#e3ecf4",
+    "muted": "#8298ad", "teal": "#42d7b2", "cyan": "#61c4df",
+    "amber": "#e5ad5a", "red": "#e47b78", "green": "#56d6a8",
+}
+
+
+def text(value: Any, fallback: str = "â€”") -> str:
     if value is None or value == "":
         return fallback
     if isinstance(value, (dict, list)):
-        return str(value)
+        return json.dumps(value, default=str, ensure_ascii=False)[:160]
     return str(value)
 
 
-def _extract_list(payload: Any, keys: tuple[str, ...]) -> list[Any]:
+def extract_list(payload: Any, *keys: str) -> list[Any]:
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):
         for key in keys:
-            value = payload.get(key)
-            if isinstance(value, list):
-                return value
+            val = payload.get(key)
+            if isinstance(val, list):
+                return val
     return []
 
 
-def _format_metric(record: Any) -> str:
-    if record is None:
-        return "—"
-    if isinstance(record, dict):
-        value = record.get("usd_millions")
-        year = record.get("year")
-        if value is not None:
-            try:
-                amount = float(value)
-                if abs(amount) >= 1_000_000:
-                    formatted = f"${amount / 1_000_000:,.2f}T"
-                elif abs(amount) >= 1_000:
-                    formatted = f"${amount / 1_000:,.2f}B"
-                else:
-                    formatted = f"${amount:,.2f}M"
-                return f"{formatted}  ·  FY {year}" if year else formatted
-            except (TypeError, ValueError):
-                pass
-        return _text(record.get("value"))
+def human_bytes(value: Any) -> str:
     try:
-        amount = float(record)
-        return f"${amount:,.2f}"
+        number = float(value)
     except (TypeError, ValueError):
-        return _text(record)
+        return text(value)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if number < 1024 or unit == "TB":
+            return f"{number:,.1f} {unit}"
+        number /= 1024
+    return f"{number:,.1f} TB"
 
 
-class Panel(QWidget):
-    """Content area for a dock; the QDockWidget title is the single panel heading."""
+def amount_from_record(record: Any) -> float | None:
+    if not isinstance(record, dict):
+        try:
+            return float(record)
+        except (TypeError, ValueError):
+            return None
+    value = record.get("usd_millions")
+    if value is not None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    value = record.get("value")
+    try:
+        raw = float(value)
+        return raw / 1_000_000 if record.get("unit") == "USD" else raw
+    except (TypeError, ValueError):
+        return None
 
-    def __init__(self, title: str, subtitle: str = "", parent: QWidget | None = None) -> None:
+
+def money_compact_millions(value: Any) -> str:
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return text(value)
+    if abs(value) >= 1_000_000:
+        return f"${value / 1_000_000:,.2f}T"
+    if abs(value) >= 1_000:
+        return f"${value / 1_000:,.2f}B"
+    return f"${value:,.1f}M"
+
+
+def money_record(record: Any) -> str:
+    value = amount_from_record(record)
+    if value is None:
+        return "â€”"
+    year = record.get("year") if isinstance(record, dict) else None
+    out = money_compact_millions(value)
+    return f"{out}  Â·  FY {year}" if year else out
+
+
+def metric_label(metric: str) -> str:
+    return dict(FUNDAMENTAL_METRICS).get(metric, metric.replace("_", " ").title())
+
+
+class Card(QFrame):
+    def __init__(self, title: str = "", subtitle: str = "", parent: QWidget | None = None):
         super().__init__(parent)
-        self.setObjectName("panelBody")
-        self.setMinimumHeight(105)
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(10, 7, 10, 10)
-        self.layout.setSpacing(7)
-        meta_row = QHBoxLayout()
-        meta_row.addStretch(1)
-        self.status_label = QLabel(subtitle.upper())
-        self.status_label.setObjectName("panelMeta")
-        meta_row.addWidget(self.status_label)
-        self.layout.addLayout(meta_row)
-        self.content_layout = QVBoxLayout()
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(7)
-        self.layout.addLayout(self.content_layout, 1)
+        self.setObjectName("surfaceCard")
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.box = QVBoxLayout(self)
+        self.box.setContentsMargins(14, 12, 14, 13)
+        self.box.setSpacing(9)
+        if title:
+            top = QHBoxLayout()
+            self.heading = QLabel(title)
+            self.heading.setObjectName("cardHeading")
+            top.addWidget(self.heading)
+            top.addStretch(1)
+            self.meta = QLabel(subtitle)
+            self.meta.setObjectName("cardMeta")
+            top.addWidget(self.meta)
+            self.box.addLayout(top)
+        self.body = QVBoxLayout()
+        self.body.setContentsMargins(0, 0, 0, 0)
+        self.body.setSpacing(8)
+        self.box.addLayout(self.body, 1)
 
-    def set_meta(self, text: str) -> None:
-        self.status_label.setText(text.upper())
-
-    def add_note(self, text: str, object_name: str = "mutedText") -> QLabel:
-        label = QLabel(text)
-        label.setObjectName(object_name)
-        label.setWordWrap(True)
-        self.content_layout.addWidget(label)
-        return label
+    def set_meta(self, value: str) -> None:
+        if hasattr(self, "meta"):
+            self.meta.setText(value)
 
 
-class SimpleTablePanel(Panel):
-    def __init__(self, title: str, headers: list[str], rows: list[list[str]], subtitle: str = "") -> None:
-        super().__init__(title, subtitle)
-        self.table = QTableWidget(0, len(headers))
-        self.table.setHorizontalHeaderLabels(headers)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table.setAlternatingRowColors(True)
-        self.table.setShowGrid(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.table.setMinimumHeight(110)
-        self.content_layout.addWidget(self.table)
-        self.set_rows(rows)
+class MetricCard(QFrame):
+    def __init__(self, label: str, value: str = "â€”", detail: str = ""):
+        super().__init__()
+        self.setObjectName("metricCard")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 11, 14, 12)
+        layout.setSpacing(4)
+        self.label = QLabel(label.upper())
+        self.label.setObjectName("metricLabel")
+        self.value = QLabel(value)
+        self.value.setObjectName("metricValue")
+        self.value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.detail = QLabel(detail)
+        self.detail.setObjectName("metricDetail")
+        self.detail.setWordWrap(True)
+        layout.addWidget(self.label)
+        layout.addWidget(self.value)
+        layout.addWidget(self.detail)
 
-    def set_rows(self, rows: list[list[str]]) -> None:
-        self.table.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            for c, value in enumerate(row):
-                item = QTableWidgetItem(_text(value))
+    def set_values(self, value: str, detail: str = "") -> None:
+        self.value.setText(value)
+        self.detail.setText(detail)
+
+
+class SectionTitle(QWidget):
+    def __init__(self, title: str, subtitle: str = ""):
+        super().__init__()
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 4, 0, 6)
+        row.setSpacing(12)
+        self.title = QLabel(title)
+        self.title.setObjectName("pageTitle")
+        row.addWidget(self.title)
+        if subtitle:
+            sub = QLabel(subtitle)
+            sub.setObjectName("pageSubtitle")
+            row.addWidget(sub, 1, Qt.AlignmentFlag.AlignVCenter)
+
+
+class DataTable(QTableWidget):
+    def __init__(self, headers: list[str], parent: QWidget | None = None):
+        super().__init__(0, len(headers), parent)
+        self.setHorizontalHeaderLabels(headers)
+        self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(31)
+        self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(False)
+        self.setWordWrap(False)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setSortingEnabled(False)
+        self.horizontalHeader().setHighlightSections(False)
+        self.horizontalHeader().setStretchLastSection(True)
+
+    def fill(self, rows: list[list[Any]]) -> None:
+        self.setUpdatesEnabled(False)
+        self.setRowCount(len(rows))
+        for r, values in enumerate(rows):
+            for c, value in enumerate(values[: self.columnCount()]):
+                item = QTableWidgetItem(text(value))
+                item.setToolTip(text(value))
                 item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-                self.table.setItem(r, c, item)
-        self.table.resizeColumnsToContents()
+                self.setItem(r, c, item)
+        self.setUpdatesEnabled(True)
 
 
-class GlobalMarketsPanel(SimpleTablePanel):
-    def __init__(self) -> None:
-        rows = [[name, region, "—", "NO QUOTE FEED"] for name, region in GLOBAL_MARKETS]
-        super().__init__("Global Markets", ["INDEX", "REGION", "LAST", "STATUS"], rows, "REFERENCE LIST · NO LIVE QUOTES")
-        self.table.setColumnWidth(0, 125)
-        self.table.setColumnWidth(1, 105)
-        self.table.setColumnWidth(2, 65)
+class FundamentalChart(QWidget):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setMinimumHeight(260)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.records: list[dict[str, Any]] = []
+        self.forecasts: list[dict[str, Any]] = []
+        self.symbol = "AAPL"
+        self.metric = "Revenue"
+        self.state = "Choose a company to load reported annual fundamentals."
 
+    def set_data(self, records: list[dict[str, Any]], symbol: str, metric: str, forecasts: list[dict[str, Any]] | None = None):
+        self.records = records or []
+        self.symbol = symbol
+        self.metric = metric
+        if forecasts is not None:
+            self.forecasts = forecasts
+        self.state = "" if len(self.records) >= 2 else "Not enough annual observations to draw a trend."
+        self.update()
 
-class WatchlistPanel(SimpleTablePanel):
-    def __init__(self) -> None:
-        rows = [[symbol, name, "—"] for symbol, name in WATCHLIST]
-        super().__init__("Watchlist", ["SYMBOL", "COMPANY", "LAST"], rows, "INITIAL COMPANY UNIVERSE")
-        self.table.setColumnWidth(0, 70)
-        self.table.setColumnWidth(1, 190)
+    def set_error(self, message: str):
+        self.state = message[:180]
+        self.update()
 
-    def update_companies(self, payload: Any) -> None:
-        records = _extract_list(payload, ("companies", "items", "results", "data"))
-        if not records:
+    def _series(self):
+        out = []
+        for row in self.records:
+            try:
+                year = int(row.get("year"))
+                value = amount_from_record(row)
+                if value is not None and math.isfinite(value):
+                    out.append((year, value))
+            except (TypeError, ValueError):
+                continue
+        return sorted(out)
+
+    def _forecast_series(self):
+        out = []
+        for row in self.forecasts:
+            if not isinstance(row, dict):
+                continue
+            year = row.get("year") or row.get("forecast_year")
+            value = row.get("value_usd")
+            if value is None:
+                value = row.get("value", row.get("forecast"))
+            if value is None and row.get("usd_millions") is not None:
+                value = float(row["usd_millions"]) * 1_000_000
+            try:
+                year = int(year)
+                amount = float(value)
+                # Forecast APIs normally provide absolute USD; chart values use USD millions.
+                if abs(amount) >= 10_000_000:
+                    amount /= 1_000_000
+                if math.isfinite(amount):
+                    out.append((year, amount))
+            except (TypeError, ValueError):
+                continue
+        return sorted(out)
+
+    def _format_axis(self, value: float) -> str:
+        return money_compact_millions(value)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.fillRect(self.rect(), QColor("#0b1420"))
+        data = self._series()
+        forecast = self._forecast_series()
+        if len(data) < 2:
+            p.setPen(QColor(COLORS["muted"]))
+            p.setFont(QFont("Segoe UI", 10))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.state or "Waiting for historical data")
+            p.end()
             return
-        rows: list[list[str]] = []
-        for record in records:
-            if isinstance(record, dict):
-                symbol = _text(record.get("symbol") or record.get("ticker"))
-                company = _text(record.get("name") or record.get("company"))
-            else:
-                symbol, company = _text(record), ""
-            if symbol != "—":
-                rows.append([symbol, company, "—"])
-        if rows:
-            self.set_rows(rows)
-            self.set_meta(f"{len(rows)} COMPANIES · PRICE FEED NOT CONNECTED")
+
+        all_points = data + forecast
+        values = [v for _, v in all_points]
+        lo, hi = min(values), max(values)
+        if hi <= lo:
+            hi = lo + max(abs(lo) * 0.05, 1.0)
+        pad = (hi - lo) * 0.12
+        lo -= pad
+        hi += pad
+        xmin, xmax = data[0][0], max(data[-1][0], forecast[-1][0] if forecast else data[-1][0])
+        if xmax <= xmin:
+            xmax = xmin + 1
+
+        plot = self.rect().adjusted(84, 22, -28, -48)
+        if plot.width() <= 10 or plot.height() <= 10:
+            p.end(); return
+
+        # Grid and y-axis labels.
+        p.setFont(QFont("Consolas", 8))
+        for i in range(5):
+            frac = i / 4
+            y = plot.top() + int(plot.height() * frac)
+            value = hi - (hi - lo) * frac
+            p.setPen(QPen(QColor(COLORS["grid"]), 1))
+            p.drawLine(plot.left(), y, plot.right(), y)
+            p.setPen(QColor(COLORS["muted"]))
+            p.drawText(QRectF(3, y - 9, 75, 18), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, self._format_axis(value))
+        for i in range(6):
+            frac = i / 5
+            x = plot.left() + int(plot.width() * frac)
+            p.setPen(QPen(QColor(COLORS["grid"]), 1))
+            p.drawLine(x, plot.top(), x, plot.bottom())
+
+        def pt(year, value):
+            x = plot.left() + (year - xmin) / (xmax - xmin) * plot.width()
+            y = plot.bottom() - (value - lo) / (hi - lo) * plot.height()
+            return x, y
+
+        path = QPainterPath()
+        first = pt(*data[0]); path.moveTo(*first)
+        for point in data[1:]:
+            path.lineTo(*pt(*point))
+        fill = QPainterPath(path)
+        fill.lineTo(*pt(data[-1][0], lo))
+        fill.lineTo(*pt(data[0][0], lo))
+        fill.closeSubpath()
+        p.fillPath(fill, QColor(66, 215, 178, 24))
+        p.setPen(QPen(QColor(COLORS["teal"]), 2.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        p.drawPath(path)
+        p.setBrush(QColor(COLORS["teal"]))
+        p.setPen(Qt.PenStyle.NoPen)
+        for year, value in data:
+            x, y = pt(year, value)
+            p.drawEllipse(QRectF(x - 3.3, y - 3.3, 6.6, 6.6))
+
+        if forecast:
+            forecast_points = [(data[-1][0], data[-1][1])] + forecast
+            forecast_path = QPainterPath()
+            forecast_path.moveTo(*pt(*forecast_points[0]))
+            for point in forecast_points[1:]:
+                forecast_path.lineTo(*pt(*point))
+            p.setPen(QPen(QColor(COLORS["amber"]), 2.2, Qt.PenStyle.DashLine))
+            p.drawPath(forecast_path)
+
+        p.setPen(QColor(COLORS["muted"]))
+        p.setFont(QFont("Consolas", 8))
+        p.drawText(plot.left(), plot.bottom() + 28, str(xmin))
+        p.drawText(plot.center().x() - 18, plot.bottom() + 28, str((xmin + xmax) // 2))
+        p.drawText(plot.right() - 35, plot.bottom() + 28, str(xmax))
+        p.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        p.setPen(QColor(COLORS["text"]))
+        p.drawText(8, 15, f"{self.symbol}  Â·  {self.metric.upper()}  Â·  REPORTED SEC FUNDAMENTALS")
+        p.setFont(QFont("Segoe UI", 8))
+        p.setPen(QColor(COLORS["muted"]))
+        p.drawText(self.width() - 155, 15, f"{len(data)} FY observations")
+        p.end()
 
 
-class CompanyResearchPanel(Panel):
+class ChartCard(Card):
+    metric_changed = Signal(str)
+
+    def __init__(self):
+        super().__init__("Financial history", "SEC ANNUAL OBSERVATIONS")
+        controls = QHBoxLayout()
+        self.metric_combo = QComboBox()
+        for key, label in FUNDAMENTAL_METRICS:
+            self.metric_combo.addItem(label, key)
+        self.metric_combo.setMinimumWidth(170)
+        controls.addWidget(QLabel("Metric"))
+        controls.addWidget(self.metric_combo)
+        controls.addStretch(1)
+        self.note = QLabel("Reported fundamentals Â· USD, annual")
+        self.note.setObjectName("smallMuted")
+        controls.addWidget(self.note)
+        self.body.addLayout(controls)
+        self.chart = FundamentalChart()
+        self.body.addWidget(self.chart, 1)
+        self.metric_combo.currentIndexChanged.connect(lambda: self.metric_changed.emit(str(self.metric_combo.currentData())))
+
+    def set_series(self, payload: Any, symbol: str, metric: str, forecasts: list[dict[str, Any]] | None = None):
+        series = payload.get("series", []) if isinstance(payload, dict) else []
+        records = series[0].get("data", []) if series and isinstance(series[0], dict) else []
+        label = payload.get("label", metric_label(metric)) if isinstance(payload, dict) else metric_label(metric)
+        self.note.setText(f"{symbol} Â· {label} Â· USD")
+        self.set_meta(f"{len(records)} ANNUAL OBSERVATIONS")
+        self.chart.set_data(records, symbol, str(label), forecasts)
+
+
+class GlobalMarketsCard(Card):
+    def __init__(self):
+        super().__init__("Global markets", "REFERENCE INDICES Â· NO QUOTES")
+        self.table = DataTable(["Index", "Region", "Last"])
+        self.table.fill([[name, region, "â€”"] for name, region in GLOBAL_MARKETS])
+        self.table.setColumnWidth(0, 145)
+        self.body.addWidget(self.table)
+        self.note = QLabel("Live index quotes are not connected. Values are intentionally blank.")
+        self.note.setObjectName("smallMuted")
+        self.body.addWidget(self.note)
+
+
+class WatchlistCard(Card):
+    symbol_selected = Signal(str)
+
+    def __init__(self):
+        super().__init__("Company watchlist", "10-COMPANY UNIVERSE")
+        self.table = DataTable(["Symbol", "Company", "Revenue"])
+        self.table.setColumnWidth(0, 70)
+        self.table.setColumnWidth(1, 145)
+        self.table.setColumnWidth(2, 105)
+        self.table.cellDoubleClicked.connect(self._activate_row)
+        self.body.addWidget(self.table)
+        self.note = QLabel("Double-click a company to open its equity research.")
+        self.note.setObjectName("smallMuted")
+        self.body.addWidget(self.note)
+        self.update_companies([])
+
+    def _activate_row(self, row: int, column: int):
+        item = self.table.item(row, 0)
+        if item:
+            self.symbol_selected.emit(item.text())
+
+    def update_companies(self, payload: Any):
+        records = extract_list(payload, "companies", "items", "results", "data")
+        if not records:
+            records = [{"symbol": s, "name": n} for s, n in WATCHLIST]
+        rows = []
+        for item in records:
+            if isinstance(item, dict):
+                rows.append([text(item.get("symbol")), text(item.get("name")), money_record(item.get("revenue_latest"))])
+        self.table.fill(rows)
+        self.set_meta(f"{len(rows)} COMPANIES Â· REPORTED FUNDAMENTALS")
+
+
+class CompanySummaryCard(Card):
     symbol_changed = Signal(str)
 
-    def __init__(self) -> None:
-        super().__init__("Company Research", "SEC FUNDAMENTALS · ANNUAL")
+    def __init__(self):
+        super().__init__("Company research", "SEC COMPANY FACTS")
+        selector_row = QHBoxLayout()
         self.selector = QComboBox()
         for symbol, name in WATCHLIST:
-            self.selector.addItem(f"{symbol}   ·   {name}", symbol)
-        self.selector.currentIndexChanged.connect(self._selection_changed)
-        self.content_layout.addWidget(self.selector)
-
-        self.company_name = QLabel("Select a company")
-        self.company_name.setObjectName("companyName")
-        self.content_layout.addWidget(self.company_name)
-        self.company_meta = self.add_note("Awaiting SEC fundamentals", "mutedText")
-
+            self.selector.addItem(f"{symbol}  â€”  {name}", symbol)
+        self.selector.currentIndexChanged.connect(lambda: self.symbol_changed.emit(str(self.selector.currentData())))
+        selector_row.addWidget(QLabel("Company"))
+        selector_row.addWidget(self.selector, 1)
+        self.body.addLayout(selector_row)
+        self.name_label = QLabel("Select a company")
+        self.name_label.setObjectName("companyHero")
+        self.body.addWidget(self.name_label)
+        self.meta_label = QLabel("Awaiting annual SEC facts")
+        self.meta_label.setObjectName("smallMuted")
+        self.body.addWidget(self.meta_label)
         grid = QGridLayout()
-        grid.setHorizontalSpacing(7)
-        grid.setVerticalSpacing(7)
-        self.metric_labels: dict[str, QLabel] = {}
-        captions = (
-            ("revenue", "LATEST ANNUAL REVENUE"),
-            ("net_income", "LATEST NET INCOME"),
-            ("assets", "TOTAL ASSETS"),
-            ("coverage", "HISTORICAL COVERAGE"),
-        )
-        for index, (key, caption) in enumerate(captions):
-            wrapper = QFrame()
-            wrapper.setObjectName("metricBlock")
-            box = QVBoxLayout(wrapper)
-            box.setContentsMargins(9, 7, 9, 7)
-            box.setSpacing(4)
-            caption_label = QLabel(caption)
-            caption_label.setObjectName("metricCaption")
-            value_label = QLabel("—")
-            value_label.setWordWrap(True)
-            value_label.setObjectName("metricValue")
-            value_label.setFont(QFont("Consolas", 10, QFont.Weight.DemiBold))
-            box.addWidget(caption_label)
-            box.addWidget(value_label)
-            grid.addWidget(wrapper, index // 2, index % 2)
-            self.metric_labels[key] = value_label
-        self.content_layout.addLayout(grid)
-        self._selection_changed()
+        grid.setHorizontalSpacing(10); grid.setVerticalSpacing(10)
+        self.cards = {
+            "revenue": MetricCard("Revenue"),
+            "net_income": MetricCard("Net income"),
+            "assets": MetricCard("Total assets"),
+            "coverage": MetricCard("Historical coverage"),
+        }
+        for idx, card in enumerate(self.cards.values()):
+            grid.addWidget(card, idx // 2, idx % 2)
+        self.body.addLayout(grid)
+        self.forecast = QLabel("Fundamental forecast will appear here.")
+        self.forecast.setWordWrap(True)
+        self.forecast.setObjectName("smallMuted")
+        self.body.addWidget(self.forecast)
+        self.warning = QLabel("Experimental fundamental trend only â€” not a share-price prediction or investment recommendation.")
+        self.warning.setWordWrap(True)
+        self.warning.setObjectName("warningText")
+        self.body.addWidget(self.warning)
+        self.body.addStretch(1)
 
-    def _selection_changed(self, *_: Any) -> None:
-        symbol = str(self.selector.currentData() or "AAPL")
-        self.company_meta.setText(f"{symbol} · REQUESTING COMPANY DATA")
-        self.symbol_changed.emit(symbol)
-
-    def update_company(self, payload: Any) -> None:
-        record = payload
-        if isinstance(payload, dict):
-            for key in ("company", "data", "result"):
-                if isinstance(payload.get(key), dict):
-                    record = payload[key]
-                    break
-        if not isinstance(record, dict):
-            self.company_meta.setText("Unexpected company response")
-            return
-
-        symbol = _text(record.get("symbol") or record.get("ticker"), str(self.selector.currentData() or "AAPL"))
-        name = _text(record.get("name") or record.get("company_name"), symbol)
-        sector = _text(record.get("sector") or record.get("industry"), "SEC XBRL")
-        self.company_name.setText(name)
-        self.company_meta.setText(f"{symbol}  ·  {sector}  ·  REPORTED FUNDAMENTALS, NOT MARKET PRICE")
-
-        revenue = record.get("revenue_latest")
-        income = record.get("net_income_latest")
-        assets = record.get("assets_latest")
-        metrics = record.get("metrics") if isinstance(record.get("metrics"), dict) else {}
-        revenue_series = metrics.get("revenue") if isinstance(metrics.get("revenue"), list) else []
-        self.metric_labels["revenue"].setText(_format_metric(revenue))
-        self.metric_labels["net_income"].setText(_format_metric(income))
-        self.metric_labels["assets"].setText(_format_metric(assets))
-        years = record.get("revenue_years") or len(revenue_series)
-        start = record.get("history_start")
-        end = record.get("history_end")
-        coverage = f"{years} FYs"
-        if start and end:
-            coverage += f"  ·  {start}–{end}"
-        self.metric_labels["coverage"].setText(coverage)
-
-
-class MarketPulsePanel(Panel):
-    def __init__(self) -> None:
-        super().__init__("Market Pulse", "AWAITING VERIFIED PRICE DATA")
-        self.value = self.add_note("Market breadth and sentiment are not available yet.", "warnText")
-        self.add_note("A permitted market-price feed is required before these statistics can be calculated.")
-
-
-class PortfolioPanel(Panel):
-    def __init__(self) -> None:
-        super().__init__("Portfolio Summary", "NO PORTFOLIO")
-        self.add_note("No portfolio has been configured.", "warnText")
-        self.add_note("Holdings, exposure, daily P&L and returns will be calculated from saved positions and validated prices.")
-
-
-class PerformancePanel(Panel):
-    def __init__(self) -> None:
-        super().__init__("Performance Tracker", "DATA SOURCE PENDING")
-        self.add_note("No verified market-price history is connected.", "warnText")
-        self.add_note("Performance metrics remain unavailable until a permitted OHLCV source is integrated.")
-
-
-class NewsPanel(Panel):
-    def __init__(self) -> None:
-        super().__init__("News & Events", "OFFICIAL HEADLINES · GDELT EVENTS")
-        self.list_widget = QListWidget()
-        self.list_widget.setMinimumHeight(110)
-        self.content_layout.addWidget(self.list_widget)
-        self.list_widget.addItem("Waiting for the Lionare news service…")
-
-    def update_news(self, payload: Any) -> None:
-        self.list_widget.clear()
-        if isinstance(payload, dict):
-            headlines = payload.get("headlines") if isinstance(payload.get("headlines"), list) else []
-            events = payload.get("events") if isinstance(payload.get("events"), list) else []
-            records = [("HEADLINE", x) for x in headlines] + [("GDELT", x) for x in events]
-        else:
-            records = [("NEWS", x) for x in _extract_list(payload, ("news", "items", "articles", "results", "data"))]
-
-        if not records:
-            self.list_widget.addItem("No news records returned by the backend.")
-            self.set_meta("NO CURRENT RECORDS")
-            return
-
-        # Keep the news panel readable; the full list remains in the data lake.
-        for kind, record in records[:80]:
-            if isinstance(record, dict):
-                title = _text(record.get("title") or record.get("headline") or record.get("name"), "Untitled item")
-                source = _text(record.get("source") or record.get("publisher") or record.get("domain"), kind)
-                published = _text(record.get("published") or record.get("published_at") or record.get("date") or record.get("datetime"), "")
-                item = QListWidgetItem(f"{title}\n{kind}  ·  {source}  ·  {published}")
-                url = record.get("url") or record.get("link")
-                if url:
-                    item.setData(Qt.ItemDataRole.UserRole, str(url))
-            else:
-                item = QListWidgetItem(f"{_text(record)}\n{kind}")
-            self.list_widget.addItem(item)
-        self.set_meta(f"{len(headlines) if isinstance(payload, dict) else len(records)} HEADLINES  ·  {len(events) if isinstance(payload, dict) else 0} EVENTS")
-
-    def set_error(self, message: str) -> None:
-        self.list_widget.clear()
-        self.list_widget.addItem(f"News service unavailable\n{message}")
-        self.set_meta("REQUEST ERROR")
-
-
-class QuantPanel(Panel):
-    def __init__(self, lqie_available: bool, trendline_status: str) -> None:
-        super().__init__("LQIE Quant Lab", "ENGINE STATUS")
-        self.add_note(f"LQIE package: {'AVAILABLE' if lqie_available else 'NOT FOUND'}", "goodText" if lqie_available else "warnText")
-        self.add_note("Pattern engine: 0.5 experimental branch")
-        self.add_note("Candlesticks: TA-Lib integration installed")
-        self.add_note(f"Trendlines: {trendline_status}", "warnText")
-        self.add_note("Quantitative runs execute in the backend process, not in the desktop UI thread.")
-
-
-class DataLakePanel(Panel):
-    def __init__(self) -> None:
-        super().__init__("Data Lake", "LOCAL STORAGE")
-        self.summary = self.add_note(f"Data lake: {DATA_LAKE_ROOT}")
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["LAYER", "PARQUET FILES", "SIZE"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setShowGrid(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.content_layout.addWidget(self.table)
-        self.add_note("Storage inventory is read-only from the desktop.")
-
-    def update_overview(self, payload: Any) -> None:
+    def set_company(self, payload: Any):
         if not isinstance(payload, dict):
             return
-        total = payload.get("storage_bytes")
-        if total is not None:
-            try:
-                self.summary.setText(f"{DATA_LAKE_ROOT}  ·  {float(total) / (1024 * 1024):.2f} MB TOTAL")
-            except (TypeError, ValueError):
-                pass
-        datasets = payload.get("datasets")
-        # Dataset summary shape varies by DuckDB catalogue version; render only known list records.
-        records = _extract_list(datasets, ("datasets", "items", "results"))
-        if records:
-            rows = []
-            for record in records[:100]:
-                if isinstance(record, dict):
-                    rows.append([
-                        _text(record.get("name") or record.get("dataset") or record.get("view")),
-                        _text(record.get("rows") or record.get("row_count")),
-                        _text(record.get("size") or record.get("size_bytes")),
-                    ])
-            if rows:
-                self._set_rows(rows)
+        symbol = text(payload.get("symbol"), "AAPL")
+        name = text(payload.get("name"), symbol)
+        sector = text(payload.get("sector"), "SEC XBRL")
+        self.name_label.setText(name)
+        self.meta_label.setText(f"{symbol}  Â·  {sector}  Â·  fiscal-year data")
+        self.cards["revenue"].set_values(money_record(payload.get("revenue_latest")), f"FY {payload.get('history_end') or 'â€”'}")
+        self.cards["net_income"].set_values(money_record(payload.get("net_income_latest")), "Latest reported fiscal year")
+        self.cards["assets"].set_values(money_record(payload.get("assets_latest")), "Latest reported fiscal year")
+        years = payload.get("revenue_years", 0)
+        self.cards["coverage"].set_values(f"{years} fiscal years", f"{payload.get('history_start') or 'â€”'} â€“ {payload.get('history_end') or 'â€”'}")
 
-    def _set_rows(self, rows: list[list[str]]) -> None:
-        self.table.setRowCount(len(rows))
-        for row_index, row in enumerate(rows):
-            for column, value in enumerate(row):
-                self.table.setItem(row_index, column, QTableWidgetItem(value))
-        self.table.resizeColumnsToContents()
-
-    def refresh_local(self) -> None:
-        if not DATA_LAKE_ROOT.exists():
-            self.summary.setText(f"Data lake path not accessible: {DATA_LAKE_ROOT}")
-            self._set_rows([])
+    def set_forecast(self, payload: Any):
+        if not isinstance(payload, dict):
             return
-        rows: list[list[str]] = []
-        total_bytes = 0
-        for layer in ("bronze", "silver", "gold", "catalog", "metadata"):
-            path = DATA_LAKE_ROOT / layer
-            files = list(path.rglob("*.parquet")) if path.exists() else []
-            size = 0
-            for file in files:
-                try:
-                    size += file.stat().st_size
-                except OSError:
-                    continue
-            rows.append([layer.upper(), str(len(files)), f"{size / 1024:,.1f} KB"])
-            total_bytes += size
-        self.summary.setText(f"{DATA_LAKE_ROOT}  ·  {total_bytes / (1024 * 1024):.2f} MB PARQUET")
-        self._set_rows(rows)
+        forecasts = payload.get("forecasts", [])
+        parts = []
+        for row in forecasts:
+            if not isinstance(row, dict):
+                continue
+            year = row.get("year") or row.get("forecast_year")
+            value = row.get("value_usd", row.get("value", row.get("forecast")))
+            if value is None and row.get("usd_millions") is not None:
+                value = float(row["usd_millions"]) * 1_000_000
+            try:
+                parts.append(f"FY {year}: ${float(value)/1e9:,.1f}B")
+            except (TypeError, ValueError):
+                parts.append(f"FY {year}: {text(value)}")
+        self.forecast.setText("Forecast  Â·  " + ("   |   ".join(parts) if parts else "No forecast returned"))
+        self.warning.setText(text(payload.get("warning"), "Experimental historical trend; not a stock-price forecast."))
+
+    def select_symbol(self, symbol: str):
+        index = self.selector.findData(symbol)
+        if index >= 0 and index != self.selector.currentIndex():
+            self.selector.setCurrentIndex(index)
 
 
-class SystemPanel(Panel):
-    def __init__(self, api_url: str) -> None:
-        super().__init__("System Status", "LOCAL NODE")
-        self.backend = self.add_note("Backend: CHECKING…", "warnText")
-        self.backend_url = self.add_note(f"API endpoint: {api_url}")
-        self.storage = self.add_note(f"Data lake: {DATA_LAKE_ROOT}")
-        self.runtime = self.add_note("Desktop: Lionare Terminal")
-        self.last_update = self.add_note("Last refresh: —", "panelMeta")
-        self.health = self.add_note("Source monitor: awaiting backend", "mutedText")
+class NewsCard(Card):
+    def __init__(self):
+        super().__init__("News & events", "OFFICIAL FEEDS + GDELT")
+        self.tabs = QTabWidget()
+        self.headlines = QListWidget()
+        self.events = QListWidget()
+        self.tabs.addTab(self.headlines, "Official headlines")
+        self.tabs.addTab(self.events, "GDELT events")
+        self.body.addWidget(self.tabs)
+        self.headlines.itemDoubleClicked.connect(self._open)
+        self.events.itemDoubleClicked.connect(self._open)
 
-    def set_backend(self, online: bool, detail: str = "") -> None:
-        self.backend.setText(f"Backend: {'ONLINE' if online else 'OFFLINE'}" + (f"  ·  {detail}" if detail else ""))
-        self.backend.setObjectName("goodText" if online else "warnText")
-        self.backend.style().unpolish(self.backend)
-        self.backend.style().polish(self.backend)
-        self.last_update.setText("Last refresh: " + datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"))
+    @staticmethod
+    def _open(item: QListWidgetItem):
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if url:
+            QDesktopServices.openUrl(QUrl(str(url)))
 
-    def update_health(self, payload: Any) -> None:
-        if isinstance(payload, dict):
-            sources = payload.get("sources")
-            if isinstance(sources, dict):
-                healthy = sum(1 for item in sources.values() if isinstance(item, dict) and item.get("status") in ("ok", "healthy", "online"))
-                self.health.setText(f"Source monitor: {healthy}/{len(sources)} healthy")
+    def _fill(self, widget: QListWidget, records: list[Any], label: str):
+        widget.clear()
+        if not records:
+            widget.addItem(f"No {label.lower()} in the current backend response.")
+            return
+        for record in records[:200]:
+            if isinstance(record, dict):
+                title = text(record.get("title") or record.get("headline") or record.get("name"), "Untitled item")
+                source = text(record.get("source") or record.get("publisher") or record.get("domain"), label)
+                stamp = text(record.get("published") or record.get("published_at") or record.get("date") or record.get("datetime"), "")
+                item = QListWidgetItem(f"{title}\n{source}   Â·   {stamp}")
+                url = record.get("url") or record.get("link") or record.get("documentidentifier")
+                if url and str(url).startswith(("http://", "https://")):
+                    item.setData(Qt.ItemDataRole.UserRole, str(url))
             else:
-                self.health.setText(f"Source monitor: {len(payload)} status fields")
+                item = QListWidgetItem(text(record))
+            widget.addItem(item)
+
+    def update_news(self, payload: Any):
+        headlines = payload.get("headlines", []) if isinstance(payload, dict) else []
+        events = payload.get("events", []) if isinstance(payload, dict) else []
+        headlines = headlines if isinstance(headlines, list) else []
+        events = events if isinstance(events, list) else []
+        self._fill(self.headlines, headlines, "official headlines")
+        self._fill(self.events, events, "GDELT events")
+        self.set_meta(f"{len(headlines)} HEADLINES  Â·  {len(events)} EVENTS")
 
 
-class ChartWorkspace(QFrame):
-    """Deliberately honest chart surface until validated OHLCV is connected."""
+class QuantCard(Card):
+    def __init__(self):
+        super().__init__("LQIE quantitative engine", "PATTERN ENGINE + RUN ARCHIVE")
+        self.stats = QGridLayout()
+        self.engine = MetricCard("Engine", "Checking", "")
+        self.version = MetricCard("Version", "â€”", "")
+        self.run_count = MetricCard("Archived runs", "â€”", "")
+        self.gold_count = MetricCard("Gold outputs", "â€”", "")
+        for i, card in enumerate((self.engine, self.version, self.run_count, self.gold_count)):
+            self.stats.addWidget(card, 0, i)
+        self.body.addLayout(self.stats)
+        self.compat = QLabel("Trendline compatibility: awaiting diagnostic")
+        self.compat.setObjectName("warningText")
+        self.compat.setWordWrap(True)
+        self.body.addWidget(self.compat)
+        self.table = DataTable(["Run", "Symbol", "Timeframe", "Status", "Bars", "Detections"])
+        self.body.addWidget(self.table, 1)
+        self.note = QLabel("Run analyses in the LQIE worker/CLI. The desktop reads the archive; it does not run heavy calculations on the UI thread.")
+        self.note.setObjectName("smallMuted")
+        self.note.setWordWrap(True)
+        self.body.addWidget(self.note)
 
-    def __init__(self) -> None:
+    def update_status(self, payload: Any):
+        if not isinstance(payload, dict):
+            return
+        available = bool(payload.get("engine_available"))
+        self.engine.set_values("Available" if available else "Not found", "Python package")
+        self.version.set_values(text(payload.get("engine_version")), "Pattern engine")
+        self.run_count.set_values(str(payload.get("run_count", 0)), "Recorded in run index")
+        self.gold_count.set_values(str(payload.get("gold_output_count", 0)), "Gold feature artifacts")
+        diag = payload.get("trendline_compatibility") or {}
+        self.compat.setText(f"Trendline diagnostic: {text(diag.get('status'))}  Â·  pandas {text(diag.get('pandas_version'))}  Â·  pytrendline {text(diag.get('pytrendline_version'))}")
+
+    def update_runs(self, payload: Any):
+        records = extract_list(payload, "runs", "items", "results")
+        self.table.fill([[text(r.get("run_id")), text(r.get("symbol")), text(r.get("timeframe")), text(r.get("status")), text(r.get("bars_analysed")), text(r.get("pattern_detections"))] for r in records if isinstance(r, dict)])
+
+
+class DataLakeCard(Card):
+    def __init__(self):
+        super().__init__("Data lake catalogue", "BRONZE Â· SILVER Â· GOLD Â· CATALOG")
+        self.table = DataTable(["Dataset", "Rows", "Size", "Layer / source"])
+        self.body.addWidget(self.table, 1)
+        self.summary = QLabel("Waiting for backend dataset catalogueâ€¦")
+        self.summary.setObjectName("smallMuted")
+        self.body.addWidget(self.summary)
+
+    def update_overview(self, payload: Any):
+        if not isinstance(payload, dict):
+            return
+        data = payload.get("datasets", [])
+        records = extract_list(data, "datasets", "items", "results")
+        rows = []
+        for record in records:
+            if isinstance(record, dict):
+                name = next((record.get(k) for k in ("name", "dataset", "view", "table", "dataset_name", "path") if record.get(k) not in (None, "")), "Unknown")
+                count = next((record.get(k) for k in ("rows", "row_count", "records", "count", "num_rows") if record.get(k) is not None), "â€”")
+                size = next((record.get(k) for k in ("size", "size_bytes", "bytes", "file_size") if record.get(k) is not None), None)
+                detail = " Â· ".join(str(record[k]) for k in ("layer", "source", "format") if record.get(k) not in (None, ""))
+                rows.append([name, f"{int(count):,}" if str(count).isdigit() else count, human_bytes(size) if size is not None else "â€”", detail])
+            else:
+                rows.append([text(record), "â€”", "â€”", ""])
+        self.table.fill(rows)
+        self.summary.setText(f"{len(records)} datasets  Â·  {human_bytes(payload.get('storage_bytes'))} total storage  Â·  {payload.get('company_count', 'â€”')} companies  Â·  Data service {text(payload.get('version'))}  Â·  Fundamentals updated {text(payload.get('last_fundamentals_update'))}")
+
+
+class SystemCard(Card):
+    def __init__(self, api_url: str):
+        super().__init__("System & source health", "LOCAL BACKEND NODE")
+        self.api_label = QLabel(f"API endpoint  Â·  {api_url}")
+        self.api_label.setObjectName("smallMuted")
+        self.body.addWidget(self.api_label)
+        self.backend = MetricCard("Backend", "Checking", "Waiting for API response")
+        self.probes = MetricCard("Source probes", "â€”", "Latest health snapshot")
+        self.rss = MetricCard("RSS feeds", "â€”", "Latest health snapshot")
+        self.gdelt = MetricCard("GDELT", "â€”", "Latest health snapshot")
+        grid = QGridLayout()
+        for i, card in enumerate((self.backend, self.probes, self.rss, self.gdelt)):
+            grid.addWidget(card, 0, i)
+        self.body.addLayout(grid)
+        self.table = DataTable(["Type", "Source", "Status", "Details"])
+        self.body.addWidget(self.table, 1)
+        self.last = QLabel("Last health snapshot: â€”")
+        self.last.setObjectName("smallMuted")
+        self.body.addWidget(self.last)
+
+    def set_backend(self, online: bool, detail: str = ""):
+        self.backend.set_values("Online" if online else "Offline", detail)
+
+    def update_health(self, payload: Any):
+        if not isinstance(payload, dict):
+            return
+        probes = payload.get("probe_results", []) if isinstance(payload.get("probe_results"), list) else []
+        rss = payload.get("rss_results", []) if isinstance(payload.get("rss_results"), list) else []
+        gdelt = payload.get("gdelt_result", {}) if isinstance(payload.get("gdelt_result"), dict) else {}
+        ok_states = {"ok", "healthy", "online", "success", "available", "200"}
+        def count_ok(items):
+            return sum(1 for x in items if isinstance(x, dict) and str(x.get("status", "")).lower() in ok_states)
+        self.probes.set_values(f"{count_ok(probes)}/{len(probes)}", "Passed probes")
+        self.rss.set_values(f"{count_ok(rss)}/{len(rss)}", "Available feeds")
+        self.gdelt.set_values(text(gdelt.get("status")).title(), f"{gdelt.get('event_rows', 0)} event rows")
+        rows = []
+        for kind, items in (("Probe", probes), ("RSS", rss)):
+            for item in items:
+                if isinstance(item, dict):
+                    rows.append([kind, text(item.get("source") or item.get("name") or item.get("url")), text(item.get("status")), text(item.get("detail") or item.get("message"))])
+        if gdelt:
+            rows.append(["GDELT", "GDELT export", text(gdelt.get("status")), f"{gdelt.get('event_rows', 0)} rows Â· {text(gdelt.get('latest_export_url'))}"])
+        self.table.fill(rows)
+        self.last.setText("Last health snapshot  Â·  " + text(payload.get("checked_at_utc")))
+
+
+class DashboardPage(QWidget):
+    company_selected = Signal(str)
+    metric_changed = Signal(str)
+
+    def __init__(self):
         super().__init__()
-        self.setObjectName("chartWorkspace")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 13, 16, 13)
-        layout.setSpacing(9)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(18, 14, 18, 16)
+        root.setSpacing(12)
+        root.addWidget(SectionTitle("Dashboard", "Your financial intelligence overview"))
+        kpis = QHBoxLayout(); kpis.setSpacing(10)
+        self.kpi_companies = MetricCard("Companies", "10", "Tracked universe")
+        self.kpi_datasets = MetricCard("Datasets", "â€”", "Data lake catalogue")
+        self.kpi_storage = MetricCard("Data stored", "â€”", "Local lake footprint")
+        self.kpi_news = MetricCard("News records", "â€”", "Official + GDELT")
+        for card in (self.kpi_companies, self.kpi_datasets, self.kpi_storage, self.kpi_news):
+            kpis.addWidget(card, 1)
+        root.addLayout(kpis)
+        middle = QSplitter(Qt.Orientation.Horizontal)
+        middle.setChildrenCollapsible(False)
+        self.global_card = GlobalMarketsCard()
+        self.chart = ChartCard()
+        self.watchlist = WatchlistCard()
+        middle.addWidget(self.global_card)
+        middle.addWidget(self.chart)
+        middle.addWidget(self.watchlist)
+        middle.setStretchFactor(0, 2); middle.setStretchFactor(1, 6); middle.setStretchFactor(2, 3)
+        middle.setSizes([300, 850, 420])
+        root.addWidget(middle, 5)
+        self.news = NewsCard()
+        self.news.setMaximumHeight(205)
+        root.addWidget(self.news, 2)
+        self.watchlist.symbol_selected.connect(self.company_selected.emit)
+        self.chart.metric_changed.connect(self.metric_changed.emit)
 
-        top = QHBoxLayout()
-        title_box = QVBoxLayout()
-        title = QLabel("MARKET WORKSPACE")
-        title.setObjectName("chartTitle")
-        self.subtitle = QLabel("GLOBAL OVERVIEW  ·  REFERENCE DATA ONLY")
-        self.subtitle.setObjectName("chartSubtitle")
-        title_box.addWidget(title)
-        title_box.addWidget(self.subtitle)
-        top.addLayout(title_box)
-        top.addStretch(1)
-        self.instrument = QLabel("OHLCV  ·  AWAITING MARKET DATA")
-        self.instrument.setObjectName("panelMeta")
-        top.addWidget(self.instrument, 0, Qt.AlignmentFlag.AlignVCenter)
-        layout.addLayout(top)
+    def update_overview(self, payload: Any):
+        if not isinstance(payload, dict): return
+        datasets = extract_list(payload.get("datasets"), "datasets", "items")
+        self.kpi_companies.set_values(str(payload.get("company_count", "â€”")), "SEC company universe")
+        self.kpi_datasets.set_values(str(len(datasets)), "Registered datasets")
+        self.kpi_storage.set_values(human_bytes(payload.get("storage_bytes")), "Bronze through metadata")
 
-        self.canvas = ChartCanvas()
-        layout.addWidget(self.canvas, 1)
-        bottom = QHBoxLayout()
-        note = QLabel("MARKET PRICE FEED NOT CONNECTED  ·  SEC FUNDAMENTALS ARE NOT STOCK PRICES")
-        note.setObjectName("warnText")
-        bottom.addWidget(note)
-        bottom.addStretch(1)
-        self.data_state = QLabel("NO VALIDATED OHLCV")
-        self.data_state.setObjectName("panelMeta")
-        bottom.addWidget(self.data_state)
-        layout.addLayout(bottom)
-
-    def set_workspace(self, name: str) -> None:
-        subtitles = {
-            "DASHBOARD": "GLOBAL OVERVIEW  ·  REFERENCE DATA ONLY",
-            "MARKETS": "GLOBAL MARKETS  ·  PRICE FEED NOT CONNECTED",
-            "EQUITY": "EQUITY RESEARCH  ·  SEC FUNDAMENTALS",
-            "PORTFOLIO": "PORTFOLIO MONITOR  ·  NO SAVED POSITIONS",
-            "NEWS": "NEWS & EVENTS  ·  INGESTED SOURCES",
-            "QUANT LAB": "LQIE RESEARCH  ·  EXPERIMENTAL QUANTITATIVE ENGINE",
-            "DATA LAKE": "LOCAL DATASETS  ·  BRONZE / SILVER / GOLD",
-            "SYSTEM": "ENGINE HEALTH  ·  LOCAL SERVICES",
-        }
-        self.subtitle.setText(subtitles.get(name, name))
+    def update_news_count(self, headlines: int, events: int):
+        self.kpi_news.set_values(f"{headlines + events:,}", f"{headlines} headlines Â· {events} events")
 
 
-class ChartCanvas(QWidget):
-    def __init__(self) -> None:
+class EquityPage(QWidget):
+    company_selected = Signal(str)
+    metric_changed = Signal(str)
+
+    def __init__(self):
         super().__init__()
-        self.setObjectName("chartCanvasFrame")
-        self.setMinimumSize(400, 300)
+        root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("Equity research", "SEC-reported annual financials Â· not market prices"))
+        self.company = CompanySummaryCard()
+        root.addWidget(self.company)
+        lower = QSplitter(Qt.Orientation.Horizontal); lower.setChildrenCollapsible(False)
+        self.chart = ChartCard(); self.history = Card("Annual financial history", "REPORTED USD")
+        self.history_table = DataTable(["Fiscal year", "Period end", "Value", "Filed", "Form"])
+        self.history.body.addWidget(self.history_table)
+        lower.addWidget(self.chart); lower.addWidget(self.history)
+        lower.setStretchFactor(0, 6); lower.setStretchFactor(1, 4); lower.setSizes([900, 560])
+        root.addWidget(lower, 1)
+        self.company.symbol_changed.connect(self.company_selected.emit)
+        self.chart.metric_changed.connect(self.metric_changed.emit)
 
-    def paintEvent(self, event: Any) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = self.rect().adjusted(1, 1, -1, -1)
-        painter.fillRect(rect, QColor("#080e15"))
-        grid_pen = QPen(QColor("#1b2b3b"), 1)
-        painter.setPen(grid_pen)
-        for i in range(1, 8):
-            y = int(rect.height() * i / 8)
-            painter.drawLine(rect.left(), y, rect.right(), y)
-        for i in range(1, 13):
-            x = int(rect.width() * i / 13)
-            painter.drawLine(x, rect.top(), x, rect.bottom())
-        painter.setPen(QColor("#506a82"))
-        painter.setFont(QFont("Consolas", 11))
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "NO VALIDATED OHLCV DATA\n\nCandlesticks will appear when a permitted market-price source is connected.")
-        painter.end()
+    def set_company(self, payload: Any):
+        self.company.set_company(payload)
+        if isinstance(payload, dict):
+            metrics = payload.get("metrics", {})
+            metric = str(self.chart.metric_combo.currentData() or "revenue")
+            records = metrics.get(metric, []) if isinstance(metrics, dict) else []
+            self._fill_history(records)
+
+    def set_forecast(self, payload: Any):
+        self.company.set_forecast(payload)
+        forecasts = payload.get("forecasts", []) if isinstance(payload, dict) else []
+        self.chart.chart.forecasts = forecasts if isinstance(forecasts, list) else []
+        self.chart.chart.update()
+
+    def set_history(self, payload: Any, symbol: str, metric: str, forecasts: list[dict[str, Any]] | None = None):
+        self.chart.set_series(payload, symbol, metric, forecasts)
+        series = payload.get("series", []) if isinstance(payload, dict) else []
+        records = series[0].get("data", []) if series and isinstance(series[0], dict) else []
+        self._fill_history(records)
+
+    def _fill_history(self, records: list[Any]):
+        rows = []
+        for r in reversed(records or []):
+            if isinstance(r, dict):
+                rows.append([text(r.get("year")), text(r.get("date")), money_record(r), text(r.get("filed")), text(r.get("form"))])
+        self.history_table.fill(rows)
+
+    def select_symbol(self, symbol: str):
+        self.company.select_symbol(symbol)
+
+
+class MarketsPage(QWidget):
+    def __init__(self):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("Markets", "Global reference universe Â· live quotes not yet connected"))
+        row = QSplitter(Qt.Orientation.Horizontal); row.setChildrenCollapsible(False)
+        self.global_card = GlobalMarketsCard(); self.watchlist = WatchlistCard()
+        row.addWidget(self.global_card); row.addWidget(self.watchlist); row.setStretchFactor(0, 1); row.setStretchFactor(1, 2)
+        root.addWidget(row, 3)
+        self.notice = Card("Market data connection", "PRICE FEED REQUIRED")
+        label = QLabel("The current data lake contains fundamentals, macro, rates, FX reference data and positioning datasets. It does not yet include a validated equity OHLCV price feed. Candlesticks, last prices and returns will appear here once a source with suitable access and display rights is connected.")
+        label.setWordWrap(True); label.setObjectName("warningText"); self.notice.body.addWidget(label)
+        root.addWidget(self.notice, 1)
+
+
+class NewsPage(QWidget):
+    def __init__(self):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("News & events", "Official releases and GDELT event stream Â· double-click to open source"))
+        self.card = NewsCard(); root.addWidget(self.card, 1)
+
+
+class QuantPage(QWidget):
+    def __init__(self):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("Quant lab", "LQIE engine status, detector compatibility and experiment archive"))
+        self.card = QuantCard(); root.addWidget(self.card, 1)
+
+
+class DataLakePage(QWidget):
+    def __init__(self):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("Data lake", "Registered local datasets and storage inventory"))
+        self.card = DataLakeCard(); root.addWidget(self.card, 1)
+
+
+class SystemPage(QWidget):
+    def __init__(self, api_url: str):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("System health", "Backend connectivity and upstream source monitor"))
+        self.card = SystemCard(api_url); root.addWidget(self.card, 1)
+
+
+class PortfolioPage(QWidget):
+    def __init__(self):
+        super().__init__(); root = QVBoxLayout(self); root.setContentsMargins(18, 14, 18, 16); root.setSpacing(12)
+        root.addWidget(SectionTitle("Portfolio", "Position tracking will be enabled after portfolio storage is implemented"))
+        card = Card("Portfolio workspace", "NO PORTFOLIO CONFIGURED")
+        label = QLabel("There are no saved positions yet. This workspace will support holdings, cash balances, cost basis, exposure, realised/unrealised P&L and performance once a portfolio ledger and validated price history are connected.")
+        label.setWordWrap(True); label.setObjectName("smallMuted"); card.body.addWidget(label); root.addWidget(card, 1)
+

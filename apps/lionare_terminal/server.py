@@ -1,6 +1,7 @@
 """Lionare Terminal 0.1 — integrated SEC company workstation."""
 
 import json
+import csv
 import mimetypes
 import time
 from functools import lru_cache
@@ -235,6 +236,73 @@ def overview():
     }
 
 
+# LIONARE_LQIE_API_V1
+LQIE_ARCHIVE_ROOT = LAKE.root / "operations" / "lqie"
+LQIE_GOLD_ROOT = LAKE.gold / "features" / "patterns"
+
+
+def read_lqie_runs(limit=30):
+    index_path = LQIE_ARCHIVE_ROOT / "index.csv"
+    records = []
+    if index_path.is_file():
+        try:
+            with index_path.open("r", newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    records.append(row)
+        except (OSError, csv.Error):
+            records = []
+    records.sort(key=lambda item: str(item.get("started_utc", "")), reverse=True)
+    return records[:max(1, min(int(limit), 100))]
+
+
+def read_lqie_status():
+    engine_available = False
+    engine_version = "unknown"
+    try:
+        from lqie.patterns.engine import PatternEngine
+        engine_available = True
+        engine_version = str(getattr(PatternEngine, "VERSION", "available"))
+    except Exception:
+        pass
+
+    runs = read_lqie_runs(30)
+    outputs = []
+    if LQIE_GOLD_ROOT.is_dir():
+        for item in sorted(LQIE_GOLD_ROOT.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:100]:
+            try:
+                stat = item.stat()
+                outputs.append({"name": item.name, "path": str(item), "size_bytes": stat.st_size, "modified_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stat.st_mtime))})
+            except OSError:
+                continue
+
+    diagnostic = {"status": "not_checked", "pandas_version": None, "pytrendline_version": None}
+    try:
+        import importlib.metadata as package_metadata
+        diagnostic["pandas_version"] = package_metadata.version("pandas")
+        diagnostic["pytrendline_version"] = package_metadata.version("pytrendline")
+        import pytrendline
+        detector_file = Path(pytrendline.__file__).resolve().parent / "detect.py"
+        if detector_file.exists():
+            found = any(re.search(r"\b\w+\s*=\s*trends_df\.append\s*\(", line) for line in detector_file.read_text(encoding="utf-8", errors="replace").splitlines())
+            diagnostic["status"] = "compatibility_warning" if found else "no_known_append_call_found"
+    except Exception as exc:
+        diagnostic["status"] = "diagnostic_unavailable"
+        diagnostic["error"] = f"{type(exc).__name__}: {exc}"
+
+    return {
+        "engine_available": engine_available,
+        "engine_version": engine_version,
+        "run_archive_root": str(LQIE_ARCHIVE_ROOT),
+        "run_count": len(runs),
+        "latest_run": runs[0] if runs else None,
+        "recent_runs": runs,
+        "gold_output_root": str(LQIE_GOLD_ROOT),
+        "gold_output_count": len(outputs),
+        "recent_gold_outputs": outputs[:20],
+        "trendline_compatibility": diagnostic,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     def send_bytes(self, payload, content_type="application/json"):
         self.send_response(200)
@@ -340,6 +408,18 @@ class Handler(BaseHTTPRequestHandler):
                     "label": METRICS[metric],
                     **result,
                 })
+                return
+
+            if path == "/api/lqie/status":
+                self.send_json(read_lqie_status())
+                return
+
+            if path == "/api/lqie/runs":
+                try:
+                    limit = int(params.get("limit", ["30"])[0])
+                except (TypeError, ValueError):
+                    limit = 30
+                self.send_json({"runs": read_lqie_runs(limit)})
                 return
 
             if path == "/api/news":

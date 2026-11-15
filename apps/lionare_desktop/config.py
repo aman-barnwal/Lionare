@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 
 APP_NAME = "Lionare Terminal"
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.4"
 DEFAULT_API_URL = "http://127.0.0.1:8765"
 API_BASE_URL = os.environ.get("LIONARE_API_URL", DEFAULT_API_URL).rstrip("/")
 DATA_LAKE_ROOT = Path(os.environ.get("LIONARE_DATA_LAKE", str(Path.home() / "lionare-data"))).expanduser()
-REFRESH_INTERVAL_MS = max(15_000, int(os.environ.get("LIONARE_REFRESH_INTERVAL_MS", "15000")))
+REFRESH_INTERVAL_MS = max(20_000, int(os.environ.get("LIONARE_REFRESH_INTERVAL_MS", "30000")))
 
 WATCHLIST = [
     ("AAPL", "Apple Inc."),
@@ -33,4 +33,12 @@ GLOBAL_MARKETS = [
     ("NIFTY 50", "India"),
     ("NIKKEI 225", "Japan"),
     ("HANG SENG", "Hong Kong"),
+]
+
+FUNDAMENTAL_METRICS = [
+    ("revenue", "Revenue"),
+    ("net_income", "Net income"),
+    ("total_assets", "Total assets"),
+    ("operating_cash_flow", "Operating cash flow"),
+    ("operating_income", "Operating income"),
 ]
